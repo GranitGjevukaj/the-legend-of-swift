@@ -128,11 +128,65 @@ struct ASMByteRepository {
             return parseIncbinBytes(payload, relativeTo: fileURL)
         }
 
-        let values = payload.split(separator: ",").compactMap { token -> UInt8? in
-            parseByteToken(String(token))
-        }
+        let values = splitCSV(payload).flatMap { parseTokenBytes($0) }
 
         return values
+    }
+
+    private func splitCSV(_ payload: String) -> [String] {
+        var tokens: [String] = []
+        var buffer = ""
+        var inQuotes = false
+
+        for character in payload {
+            if character == "\"" {
+                inQuotes.toggle()
+                buffer.append(character)
+                continue
+            }
+
+            if character == ",", !inQuotes {
+                tokens.append(buffer.trimmingCharacters(in: .whitespaces))
+                buffer = ""
+                continue
+            }
+
+            buffer.append(character)
+        }
+
+        if !buffer.trimmingCharacters(in: .whitespaces).isEmpty {
+            tokens.append(buffer.trimmingCharacters(in: .whitespaces))
+        }
+
+        return tokens
+    }
+
+    private func parseTokenBytes(_ token: String) -> [UInt8] {
+        let trimmed = token.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return [] }
+
+        if trimmed.hasPrefix("\""), trimmed.hasSuffix("\""), trimmed.count >= 2 {
+            let start = trimmed.index(after: trimmed.startIndex)
+            let end = trimmed.index(before: trimmed.endIndex)
+            let content = String(trimmed[start..<end])
+            return Array(content.utf8)
+        }
+
+        if trimmed.hasPrefix("'"), trimmed.hasSuffix("'"), trimmed.count >= 3 {
+            let start = trimmed.index(after: trimmed.startIndex)
+            let end = trimmed.index(before: trimmed.endIndex)
+            let content = String(trimmed[start..<end])
+            if let first = content.utf8.first {
+                return [first]
+            }
+            return []
+        }
+
+        if let byte = parseByteToken(trimmed) {
+            return [byte]
+        }
+
+        return []
     }
 
     private func parseIncbinBytes(_ payload: String, relativeTo fileURL: URL) -> [UInt8] {

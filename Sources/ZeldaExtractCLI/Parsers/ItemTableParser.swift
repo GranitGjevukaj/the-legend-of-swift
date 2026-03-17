@@ -7,17 +7,7 @@ struct ItemTableParser {
     func parse(from sourceURL: URL?) -> [ItemData] {
         let base = fallbackItems()
         let blocks = repository.load(from: sourceURL)
-        let itemBytes = ASMLabelSelector.collectBytes(
-            from: blocks,
-            exactLabels: [
-                "ItemPriceTable",
-                "ShopPriceTable",
-                "ItemTableData"
-            ],
-            containsKeywords: ["item", "shop", "price"],
-            fileHints: ["item", "bank5"],
-            maxBlocks: 4
-        )
+        let itemBytes = ASMLabelSelector.collectBytes(from: blocks, specs: ZeldaDisassemblySymbols.itemData)
 
         guard !itemBytes.isEmpty else {
             return base

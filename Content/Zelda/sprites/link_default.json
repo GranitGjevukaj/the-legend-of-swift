@@ -2,22 +2,22 @@
   "frames" : [
     {
       "height" : 16,
-      "id" : "walk_up_0",
+      "id" : "link_frame_0",
       "width" : 16
     },
     {
       "height" : 16,
-      "id" : "walk_up_1",
+      "id" : "link_frame_1",
       "width" : 16
     },
     {
       "height" : 16,
-      "id" : "walk_right_0",
+      "id" : "link_frame_2",
       "width" : 16
     },
     {
       "height" : 16,
-      "id" : "attack_right",
+      "id" : "link_frame_3",
       "width" : 16
     }
   ],

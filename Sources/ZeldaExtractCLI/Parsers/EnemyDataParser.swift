@@ -7,18 +7,7 @@ struct EnemyDataParser {
 
     func parse(from sourceURL: URL?) -> [EnemyDefinition] {
         let blocks = repository.load(from: sourceURL)
-        let enemyBytes = ASMLabelSelector.collectBytes(
-            from: blocks,
-            exactLabels: [
-                "EnemyStatsData",
-                "EnemyStatTable",
-                "EnemyDataTable",
-                "MonsterStatTable"
-            ],
-            containsKeywords: ["enemy", "monster", "octorok", "stat", "hp"],
-            fileHints: ["enemy", "bank4", "bank3"],
-            maxBlocks: 6
-        )
+        let enemyBytes = ASMLabelSelector.collectBytes(from: blocks, specs: ZeldaDisassemblySymbols.enemyData)
 
         guard !enemyBytes.isEmpty else {
             return fallbackEnemies()

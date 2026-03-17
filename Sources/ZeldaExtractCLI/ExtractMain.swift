@@ -33,7 +33,7 @@ public struct ZeldaExtractor {
         let sprites = SpriteParser().parse(from: config.sourceURL)
         let text = TextParser().parseText(from: config.sourceURL)
         let audio = TextParser().parseAudio(from: config.sourceURL)
-        let damageTable = Self.defaultDamageTable()
+        let damageTable = DamageTableParser().parse(from: config.sourceURL)
         let tilesetArtifacts = TileSetParser().parse(from: config.sourceURL)
 
         var written: [URL] = []
@@ -70,24 +70,5 @@ public struct ZeldaExtractor {
         try fileManager.createDirectory(at: config.outputURL.appendingPathComponent("dungeons", isDirectory: true), withIntermediateDirectories: true)
         try fileManager.createDirectory(at: config.outputURL.appendingPathComponent("sprites", isDirectory: true), withIntermediateDirectories: true)
         try fileManager.createDirectory(at: config.outputURL.appendingPathComponent("tilesets", isDirectory: true), withIntermediateDirectories: true)
-    }
-
-    private static func defaultDamageTable() -> [DamageRule] {
-        let enemies = ["octorok", "tektite", "leever", "peahat", "stalfos", "gibdo"]
-        let weapons: [(String, Int)] = [
-            ("wooden_sword", 1),
-            ("white_sword", 2),
-            ("magic_sword", 4),
-            ("arrow", 2),
-            ("bomb", 4)
-        ]
-
-        var rules: [DamageRule] = []
-        for enemy in enemies {
-            for (weapon, amount) in weapons {
-                rules.append(DamageRule(weapon: weapon, enemy: enemy, amount: amount))
-            }
-        }
-        return rules
     }
 }

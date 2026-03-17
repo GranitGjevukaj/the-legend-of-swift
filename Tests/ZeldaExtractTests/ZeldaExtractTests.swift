@@ -45,7 +45,7 @@ final class ZeldaExtractTests: XCTestCase {
 
         let asm = """
         OverworldScreenData:
-            .byte $01,$02,$03,$04,$05,$06,$07,$08
+            .byte $1A,$FF,$2A,$FF,$3A,$FF,$4A,$FF,$5A,$FF,$6A,$FF,$7A,$FF,$8A,$FF
         OverworldExitTable:
             .byte %0001,%0100
         OverworldPalette:
@@ -59,11 +59,21 @@ final class ZeldaExtractTests: XCTestCase {
         EnemySpritePalette:
             .byte $05,$06,$07,$08
         DungeonRoomData:
-            .byte $0F,$00,$01,$04,$02,$03,$08,$04,$05
+            .byte $39,$00,$01,$04,$02,$03,$08,$04,$05
         EnemyStatsData:
             .byte $02,$01,$01,$05,$02,$03,$06,$01,$02
         ItemPriceTable:
             .byte $14,$1E,$28,$32,$3C,$46,$50
+        WeaponDamageTable:
+            .byte $03,$04,$05,$06,$07,$00,$01,$02
+        LinkSpriteFrames:
+            .byte $10,$11,$12,$13,$14,$15,$16,$17
+        EnemySpriteFrames:
+            .byte $20,$21,$22,$23,$24,$25,$26,$27
+        DialogueText:
+            .byte "HELLO HYRULE",0
+        SongOverworld:
+            .byte $20,$01,$02
         TilePatternData:
             .incbin "tiles.bin", $00, $40
         """
@@ -94,9 +104,9 @@ final class ZeldaExtractTests: XCTestCase {
 
         let dungeonData = try Data(contentsOf: outputDir.appendingPathComponent("dungeons/dungeon_1.json"))
         let dungeon = try decoder.decode(DungeonData.self, from: dungeonData)
-        XCTAssertEqual(dungeon.rooms.first?.doors, ["north", "south", "west", "east"])
+        XCTAssertEqual(dungeon.rooms.first?.doors, ["north:locked", "south:bombable", "west:shutter", "east:open"])
         XCTAssertEqual(dungeon.rooms.first?.enemies, ["stalfos", "gibdo"])
-        XCTAssertEqual(dungeon.rooms.dropFirst().first?.doors, ["west"])
+        XCTAssertEqual(dungeon.rooms.dropFirst().first?.doors, ["north:open", "south:locked", "west:open", "east:open"])
 
         let enemyData = try Data(contentsOf: outputDir.appendingPathComponent("enemies.json"))
         let enemies = try decoder.decode([EnemyDefinition].self, from: enemyData)
@@ -109,6 +119,24 @@ final class ZeldaExtractTests: XCTestCase {
         let items = try decoder.decode([ItemData].self, from: itemData)
         XCTAssertEqual(items.first(where: { $0.id == "bomb" })?.shopPrice, 100)
         XCTAssertEqual(items.first(where: { $0.id == "boomerang" })?.shopPrice, 120)
+
+        let damageData = try Data(contentsOf: outputDir.appendingPathComponent("damage_table.json"))
+        let damageRules = try decoder.decode([DamageRule].self, from: damageData)
+        XCTAssertEqual(damageRules.first?.weapon, "wooden_sword")
+        XCTAssertEqual(damageRules.first?.enemy, "octorok")
+        XCTAssertEqual(damageRules.first?.amount, 3)
+
+        let textData = try Data(contentsOf: outputDir.appendingPathComponent("text.json"))
+        let textEntries = try decoder.decode([String: String].self, from: textData)
+        XCTAssertEqual(textEntries["dialoguetext"], "HELLO HYRULE")
+
+        let audioData = try Data(contentsOf: outputDir.appendingPathComponent("audio.json"))
+        let audioEntries = try decoder.decode([String: String].self, from: audioData)
+        XCTAssertEqual(audioEntries["songoverworld"], "tempo:112;instrument:triangle;length:long")
+
+        let linkSpriteData = try Data(contentsOf: outputDir.appendingPathComponent("sprites/link_asm.json"))
+        let linkSheet = try decoder.decode(SpriteSheet.self, from: linkSpriteData)
+        XCTAssertEqual(linkSheet.frames.count, 4)
 
         let tileBin = try Data(contentsOf: outputDir.appendingPathComponent("tilesets/overworld.bin"))
         XCTAssertEqual(Array(tileBin.prefix(16)), Array(0..<16).map(UInt8.init))
@@ -154,6 +182,140 @@ final class ZeldaExtractTests: XCTestCase {
         let itemData = try Data(contentsOf: outputDir.appendingPathComponent("items.json"))
         let items = try decoder.decode([ItemData].self, from: itemData)
         XCTAssertEqual(items.first(where: { $0.id == "bomb" })?.shopPrice, 10)
+    }
+
+    func testFileHintPriorityForMatchingLabels() throws {
+        let fileManager = FileManager.default
+        let base = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let sourceDir = base.appendingPathComponent("asm", isDirectory: true)
+        let outputDir = base.appendingPathComponent("out", isDirectory: true)
+
+        try fileManager.createDirectory(at: sourceDir, withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: outputDir, withIntermediateDirectories: true)
+        defer { try? fileManager.removeItem(at: base) }
+
+        let noisy = """
+        EnemyStatsData:
+            .byte $7F,$7F,$7F,$7F,$7F,$7F
+        ItemPriceTable:
+            .byte $7F,$7F,$7F,$7F,$7F,$7F,$7F
+        """
+
+        let banked = """
+        EnemyStatsData:
+            .byte $01,$00,$00,$02,$01,$01
+        ItemPriceTable:
+            .byte $01,$02,$03,$04,$05,$06,$07
+        """
+
+        try noisy.write(to: sourceDir.appendingPathComponent("misc.asm"), atomically: true, encoding: .utf8)
+        try banked.write(to: sourceDir.appendingPathComponent("bank4_enemy.asm"), atomically: true, encoding: .utf8)
+        try banked.write(to: sourceDir.appendingPathComponent("bank5_items.asm"), atomically: true, encoding: .utf8)
+
+        _ = try ZeldaExtractor(config: ExtractionConfig(sourceURL: sourceDir, outputURL: outputDir)).run()
+
+        let decoder = JSONDecoder()
+
+        let enemyData = try Data(contentsOf: outputDir.appendingPathComponent("enemies.json"))
+        let enemies = try decoder.decode([EnemyDefinition].self, from: enemyData)
+        XCTAssertEqual(enemies.first?.hitPoints, 2)
+        XCTAssertEqual(enemies.first?.damage, 1)
+        XCTAssertEqual(enemies.first?.speed, 1)
+
+        let itemData = try Data(contentsOf: outputDir.appendingPathComponent("items.json"))
+        let items = try decoder.decode([ItemData].self, from: itemData)
+        XCTAssertEqual(items.first(where: { $0.id == "bomb" })?.shopPrice, 10)
+    }
+
+    func testGoldenTextCharacterTableDecoding() throws {
+        let fileManager = FileManager.default
+        let base = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let sourceDir = base.appendingPathComponent("asm", isDirectory: true)
+        let outputDir = base.appendingPathComponent("out", isDirectory: true)
+
+        try fileManager.createDirectory(at: sourceDir, withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: outputDir, withIntermediateDirectories: true)
+        defer { try? fileManager.removeItem(at: base) }
+
+        let asm = """
+        DialogueText:
+            .byte $08,$05,$0C,$0C,$0F,$2F,$08,$19,$12,$15,$0C,$05,$2C,$00
+        """
+
+        try asm.write(to: sourceDir.appendingPathComponent("text_table.asm"), atomically: true, encoding: .utf8)
+        _ = try ZeldaExtractor(config: ExtractionConfig(sourceURL: sourceDir, outputURL: outputDir)).run()
+
+        let data = try Data(contentsOf: outputDir.appendingPathComponent("text.json"))
+        let decoded = try JSONDecoder().decode([String: String].self, from: data)
+        XCTAssertEqual(decoded["dialoguetext"], "HELLO HYRULE!")
+    }
+
+    func testRealDisassemblyGoldenExtractionIfAvailable() throws {
+        let sourceDir = try realDisassemblySourceURL()
+        let fileManager = FileManager.default
+        let base = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let outputDir = base.appendingPathComponent("out", isDirectory: true)
+        try fileManager.createDirectory(at: outputDir, withIntermediateDirectories: true)
+        defer { try? fileManager.removeItem(at: base) }
+
+        let artifacts = try ZeldaExtractor(config: ExtractionConfig(sourceURL: sourceDir, outputURL: outputDir)).run()
+        XCTAssertEqual(artifacts.count, 20)
+
+        let decoder = JSONDecoder()
+
+        let overworldData = try Data(contentsOf: outputDir.appendingPathComponent("overworld.json"))
+        let overworld = try decoder.decode(OverworldData.self, from: overworldData)
+        XCTAssertEqual(overworld.width, 16)
+        XCTAssertEqual(overworld.height, 8)
+        XCTAssertEqual(Array(overworld.screens[0].metatileGrid.prefix(8)), [0, 0, 149, 149, 149, 149, 149, 194])
+
+        let paletteData = try Data(contentsOf: outputDir.appendingPathComponent("palettes.json"))
+        let palettes = try decoder.decode(PaletteBundle.self, from: paletteData)
+        XCTAssertEqual(palettes.areaPalettes["overworld"], [63, 28, 4, 15])
+        XCTAssertEqual(palettes.areaPalettes["dungeon_1"], [48, 0, 18, 15])
+        XCTAssertEqual(palettes.spritePalettes["link"], [63, 16, 4, 15])
+        XCTAssertEqual(palettes.spritePalettes["enemies"], [18, 28, 44, 15])
+
+        let dungeonData = try Data(contentsOf: outputDir.appendingPathComponent("dungeons/dungeon_1.json"))
+        let dungeon = try decoder.decode(DungeonData.self, from: dungeonData)
+        XCTAssertEqual(dungeon.rooms.first?.doors, ["north:locked", "south:open", "west:bombable", "east:shutter"])
+        XCTAssertEqual(dungeon.rooms.first?.enemies, ["octorok", "gibdo"])
+
+        let enemyData = try Data(contentsOf: outputDir.appendingPathComponent("enemies.json"))
+        let enemies = try decoder.decode([EnemyDefinition].self, from: enemyData)
+        XCTAssertEqual(enemies.first?.id, "octorok")
+        XCTAssertEqual(enemies.first?.hitPoints, 7)
+        XCTAssertEqual(enemies.first?.damage, 4)
+        XCTAssertEqual(enemies.first?.speed, 2)
+
+        let itemData = try Data(contentsOf: outputDir.appendingPathComponent("items.json"))
+        let items = try decoder.decode([ItemData].self, from: itemData)
+        XCTAssertEqual(items.first(where: { $0.id == "bomb" })?.shopPrice, 48)
+        XCTAssertEqual(items.first(where: { $0.id == "boomerang" })?.shopPrice, 70)
+
+        let audioData = try Data(contentsOf: outputDir.appendingPathComponent("audio.json"))
+        let audio = try decoder.decode([String: String].self, from: audioData)
+        XCTAssertEqual(audio["songtable"], "tempo:85;instrument:triangle;length:long")
+        XCTAssertEqual(audio["songheaderoverworld0"], "tempo:96;instrument:pulse;length:medium")
+
+        let textData = try Data(contentsOf: outputDir.appendingPathComponent("text.json"))
+        let text = try decoder.decode([String: String].self, from: textData)
+        XCTAssertEqual(text["overworldpersontextselectors"], "@`BBDFHJLNbbb")
+        XCTAssertEqual(text["underworldpersontextselectorsa"], "(&-02>>4")
+    }
+
+    private func realDisassemblySourceURL() throws -> URL {
+        let env = ProcessInfo.processInfo.environment
+        let override = env["ZELDA1_DISASSEMBLY_SRC"] ?? env["ZELDA_DISASSEMBLY_SRC"]
+        let path = override ?? "/tmp/zelda1-disassembly/src"
+        var isDirectory = ObjCBool(false)
+        guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory), isDirectory.boolValue else {
+            throw XCTSkip("Real disassembly source not found at \(path). Set ZELDA1_DISASSEMBLY_SRC to enable this golden test.")
+        }
+        return URL(fileURLWithPath: path, isDirectory: true)
     }
 }
 

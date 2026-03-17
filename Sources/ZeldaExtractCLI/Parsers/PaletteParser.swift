@@ -6,19 +6,7 @@ struct PaletteParser {
 
     func parse(from sourceURL: URL?) -> PaletteBundle {
         let blocks = repository.load(from: sourceURL)
-        let paletteBytes = ASMLabelSelector.collectBytes(
-            from: blocks,
-            exactLabels: [
-                "OverworldPalette",
-                "DungeonPaletteLevel1",
-                "DungeonPaletteLevel9",
-                "LinkSpritePalette",
-                "EnemySpritePalette",
-                "PaletteData"
-            ],
-            containsKeywords: ["pal", "palette"],
-            fileHints: ["palette", "bank5", "bank6"]
-        )
+        let paletteBytes = ASMLabelSelector.collectBytes(from: blocks, specs: ZeldaDisassemblySymbols.paletteData)
         let paletteBlocks = blocks.filter { searchableKey(for: $0).contains("pal") || searchableKey(for: $0).contains("palette") }
         let combinedSource = paletteBytes.isEmpty ? paletteBlocks.flatMap(\.bytes) : paletteBytes
         let combined = combinedSource.map { Int($0 & 0x3F) }

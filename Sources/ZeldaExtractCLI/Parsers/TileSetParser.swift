@@ -29,19 +29,7 @@ struct TileSetParser {
     }
 
     private func collectTileBytes(from blocks: [ASMByteBlock]) -> [UInt8] {
-        let selected = ASMLabelSelector.collectBytes(
-            from: blocks,
-            exactLabels: [
-                "TilePatternData",
-                "OverworldTilePatterns",
-                "OverworldCHRData",
-                "ChrDataBank6",
-                "BackgroundCHRData"
-            ],
-            containsKeywords: ["tile", "chr", "pattern", "sprite"],
-            fileHints: ["chr", "tiles", "bank6"],
-            maxBlocks: 8
-        )
+        let selected = ASMLabelSelector.collectBytes(from: blocks, specs: ZeldaDisassemblySymbols.tileData)
 
         if !selected.isEmpty {
             return selected

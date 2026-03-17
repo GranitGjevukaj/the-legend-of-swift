@@ -31,17 +31,7 @@ struct DungeonParser {
     }
 
     private func parseDoors(from value: UInt8) -> [String] {
-        var doors: [String] = []
-        if value & 0b0001 != 0 { doors.append("north") }
-        if value & 0b0010 != 0 { doors.append("south") }
-        if value & 0b0100 != 0 { doors.append("west") }
-        if value & 0b1000 != 0 { doors.append("east") }
-
-        if doors.isEmpty {
-            doors = ["north", "south"]
-        }
-
-        return doors
+        DungeonDoorDecoder.decodeDoors(from: value)
     }
 
     private func enemyName(for value: UInt8) -> String {
@@ -49,18 +39,7 @@ struct DungeonParser {
     }
 
     private func collectDungeonBytes(from blocks: [ASMByteBlock]) -> [UInt8] {
-        let selected = ASMLabelSelector.collectBytes(
-            from: blocks,
-            exactLabels: [
-                "DungeonRoomData",
-                "DungeonLayoutData",
-                "LevelRoomData",
-                "LevelLayoutData"
-            ],
-            containsKeywords: ["dungeon", "level", "room"],
-            fileHints: ["dungeon", "bank3"],
-            maxBlocks: 12
-        )
+        let selected = ASMLabelSelector.collectBytes(from: blocks, specs: ZeldaDisassemblySymbols.dungeonData)
 
         if selected.isEmpty {
             return []

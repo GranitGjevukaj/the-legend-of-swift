@@ -3,6 +3,7 @@ import ZeldaContent
 
 struct OverworldParser {
     private let repository = ASMByteRepository()
+    private let columnDecoder = OverworldColumnDecoder()
 
     func parse(from sourceURL: URL?) -> OverworldData {
         let blocks = repository.load(from: sourceURL)
@@ -20,6 +21,9 @@ struct OverworldParser {
         let screenCount = 16 * 8
         let tileCount = 16 * 11
 
+        let shouldUseColumnDecoder = overworldBytes.contains(0xFF) || overworldBytes.contains(0xFE)
+        let decodedGrids = shouldUseColumnDecoder ? columnDecoder.decodeScreens(from: overworldBytes) : nil
+
         var screens: [OverworldScreen] = []
         screens.reserveCapacity(screenCount)
 
@@ -28,12 +32,14 @@ struct OverworldParser {
             let column = screenIndex % 16
             let screenID = String(format: "OW_%02d_%02d", row, column)
 
-            var grid: [Int] = []
-            grid.reserveCapacity(tileCount)
-
-            for tileIndex in 0..<tileCount {
-                let sourceIndex = (screenIndex * tileCount + tileIndex) % overworldBytes.count
-                grid.append(Int(overworldBytes[sourceIndex]))
+            let grid: [Int]
+            if let decodedGrids, decodedGrids.indices.contains(screenIndex) {
+                grid = decodedGrids[screenIndex]
+            } else {
+                grid = (0..<tileCount).map { tileIndex in
+                    let sourceIndex = (screenIndex * tileCount + tileIndex) % overworldBytes.count
+                    return Int(overworldBytes[sourceIndex])
+                }
             }
 
             screens.append(
@@ -71,19 +77,7 @@ struct OverworldParser {
     }
 
     private func collectOverworldBytes(from blocks: [ASMByteBlock]) -> [UInt8] {
-        let filtered = ASMLabelSelector.collectBytes(
-            from: blocks,
-            exactLabels: [
-                "OverworldScreenData",
-                "OverworldMapData",
-                "OverworldColumnData",
-                "OverworldRoomData",
-                "OWScreenData"
-            ],
-            containsKeywords: ["overworld", "screen", "map", "column"],
-            fileHints: ["overworld", "bank1", "bank2"],
-            maxBlocks: 8
-        )
+        let filtered = ASMLabelSelector.collectBytes(from: blocks, specs: ZeldaDisassemblySymbols.overworldData)
 
         if filtered.isEmpty {
             return blocks
@@ -96,18 +90,7 @@ struct OverworldParser {
     }
 
     private func collectExitBytes(from blocks: [ASMByteBlock]) -> [UInt8] {
-        ASMLabelSelector.collectBytes(
-            from: blocks,
-            exactLabels: [
-                "OverworldExitTable",
-                "OverworldWarpTable",
-                "CaveExitTable",
-                "OverworldCaveTable"
-            ],
-            containsKeywords: ["exit", "warp", "cave"],
-            fileHints: ["overworld", "bank1", "bank2"],
-            maxBlocks: 4
-        )
+        ASMLabelSelector.collectBytes(from: blocks, specs: ZeldaDisassemblySymbols.overworldExitData)
     }
 
     private func seededFallback(from sourceURL: URL?) -> OverworldData {
