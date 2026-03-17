@@ -1,0 +1,199 @@
+import Foundation
+
+struct ASMByteBlock: Sendable {
+    let label: String
+    let fileURL: URL
+    let bytes: [UInt8]
+}
+
+struct ASMByteRepository {
+    private static let supportedExtensions = Set(["asm", "inc", "s"])
+
+    func load(from sourceURL: URL?) -> [ASMByteBlock] {
+        guard let sourceURL, FileManager.default.fileExists(atPath: sourceURL.path()) else {
+            return []
+        }
+
+        let files = asmFiles(in: sourceURL)
+        var blocks: [ASMByteBlock] = []
+        for fileURL in files {
+            blocks.append(contentsOf: parseBlocks(in: fileURL))
+        }
+        return blocks
+    }
+
+    private func asmFiles(in sourceURL: URL) -> [URL] {
+        let fileManager = FileManager.default
+        guard let enumerator = fileManager.enumerator(
+            at: sourceURL,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return []
+        }
+
+        var files: [URL] = []
+        for case let fileURL as URL in enumerator {
+            guard Self.supportedExtensions.contains(fileURL.pathExtension.lowercased()) else { continue }
+            files.append(fileURL)
+        }
+
+        return files.sorted { $0.path() < $1.path() }
+    }
+
+    private func parseBlocks(in fileURL: URL) -> [ASMByteBlock] {
+        guard let content = try? String(contentsOf: fileURL, encoding: .utf8) else {
+            return []
+        }
+
+        let lines = content.split(whereSeparator: \.isNewline).map(String.init)
+        var blocks: [ASMByteBlock] = []
+        var currentLabel: String?
+        var currentBytes: [UInt8] = []
+        var anonymousCounter = 0
+
+        func flush() {
+            guard let label = currentLabel, !currentBytes.isEmpty else { return }
+            blocks.append(ASMByteBlock(label: label, fileURL: fileURL, bytes: currentBytes))
+            currentLabel = nil
+            currentBytes = []
+        }
+
+        for line in lines {
+            let stripped = stripComment(from: line).trimmingCharacters(in: .whitespaces)
+            guard !stripped.isEmpty else { continue }
+
+            if let (label, remainder) = parseLabelLine(stripped) {
+                flush()
+                currentLabel = label
+
+                if let bytes = parseDirectiveBytes(from: remainder, relativeTo: fileURL), !bytes.isEmpty {
+                    currentBytes.append(contentsOf: bytes)
+                }
+
+                continue
+            }
+
+            if let bytes = parseDirectiveBytes(from: stripped, relativeTo: fileURL), !bytes.isEmpty {
+                if currentLabel == nil {
+                    anonymousCounter += 1
+                    currentLabel = "__anonymous_\(anonymousCounter)"
+                }
+                currentBytes.append(contentsOf: bytes)
+            }
+        }
+
+        flush()
+        return blocks
+    }
+
+    private func stripComment(from line: String) -> String {
+        guard let commentIndex = line.firstIndex(of: ";") else { return line }
+        return String(line[..<commentIndex])
+    }
+
+    private func parseLabelLine(_ line: String) -> (String, String)? {
+        guard let colon = line.firstIndex(of: ":") else { return nil }
+
+        let left = String(line[..<colon]).trimmingCharacters(in: .whitespaces)
+        let right = String(line[line.index(after: colon)...]).trimmingCharacters(in: .whitespaces)
+
+        guard !left.isEmpty else { return nil }
+        guard left.range(of: #"^[A-Za-z_\.][A-Za-z0-9_\.]*$"#, options: .regularExpression) != nil else {
+            return nil
+        }
+
+        return (left, right)
+    }
+
+    private func parseDirectiveBytes(from line: String, relativeTo fileURL: URL) -> [UInt8]? {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        let lowered = trimmed.lowercased()
+
+        let directive: String
+        if lowered.hasPrefix(".byte") {
+            directive = ".byte"
+        } else if lowered.hasPrefix(".db") {
+            directive = ".db"
+        } else if lowered.hasPrefix(".incbin") {
+            directive = ".incbin"
+        } else {
+            return nil
+        }
+
+        let payload = String(trimmed.dropFirst(directive.count)).trimmingCharacters(in: .whitespaces)
+        guard !payload.isEmpty else { return [] }
+
+        if directive == ".incbin" {
+            return parseIncbinBytes(payload, relativeTo: fileURL)
+        }
+
+        let values = payload.split(separator: ",").compactMap { token -> UInt8? in
+            parseByteToken(String(token))
+        }
+
+        return values
+    }
+
+    private func parseIncbinBytes(_ payload: String, relativeTo fileURL: URL) -> [UInt8] {
+        guard let firstQuote = payload.firstIndex(of: "\"") else { return [] }
+        guard let secondQuote = payload[payload.index(after: firstQuote)...].firstIndex(of: "\"") else { return [] }
+
+        let relativePath = String(payload[payload.index(after: firstQuote)..<secondQuote])
+        let binaryURL = fileURL.deletingLastPathComponent().appendingPathComponent(relativePath)
+
+        guard let data = try? Data(contentsOf: binaryURL) else {
+            return []
+        }
+
+        let remainder = payload[payload.index(after: secondQuote)...]
+            .trimmingCharacters(in: .whitespaces)
+            .trimmingCharacters(in: CharacterSet(charactersIn: ","))
+            .trimmingCharacters(in: .whitespaces)
+
+        guard !remainder.isEmpty else {
+            return [UInt8](data)
+        }
+
+        let params = remainder.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+        let offset = params.first.flatMap(parseIntegerToken) ?? 0
+        let size = params.dropFirst().first.flatMap(parseIntegerToken)
+
+        guard offset < data.count else { return [] }
+
+        let available = data.count - offset
+        let requested = size.map { max(0, min($0, available)) } ?? available
+        let slice = data.subdata(in: offset..<(offset + requested))
+        return [UInt8](slice)
+    }
+
+    private func parseByteToken(_ token: String) -> UInt8? {
+        guard let parsed = parseIntegerToken(token), (-128...255).contains(parsed) else {
+            return nil
+        }
+        return UInt8(truncatingIfNeeded: parsed)
+    }
+
+    private func parseIntegerToken(_ token: String) -> Int? {
+        var value = token.trimmingCharacters(in: .whitespaces)
+        while value.hasPrefix("#") || value.hasPrefix("<") || value.hasPrefix(">") {
+            value.removeFirst()
+        }
+
+        guard !value.isEmpty else { return nil }
+
+        if value.hasPrefix("$") {
+            return Int(value.dropFirst(), radix: 16)
+        }
+
+        if value.lowercased().hasPrefix("0x") {
+            return Int(value.dropFirst(2), radix: 16)
+        }
+
+        if value.hasPrefix("%") {
+            return Int(value.dropFirst(), radix: 2)
+        }
+
+        return Int(value)
+    }
+}

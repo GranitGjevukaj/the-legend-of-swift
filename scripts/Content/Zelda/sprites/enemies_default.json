@@ -1,0 +1,20 @@
+{
+  "frames" : [
+    {
+      "height" : 16,
+      "id" : "octorok_0",
+      "width" : 16
+    },
+    {
+      "height" : 16,
+      "id" : "tektite_0",
+      "width" : 16
+    },
+    {
+      "height" : 16,
+      "id" : "stalfos_0",
+      "width" : 16
+    }
+  ],
+  "id" : "enemies_default"
+}

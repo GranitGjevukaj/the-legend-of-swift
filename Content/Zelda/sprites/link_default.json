@@ -1,0 +1,25 @@
+{
+  "frames" : [
+    {
+      "height" : 16,
+      "id" : "walk_up_0",
+      "width" : 16
+    },
+    {
+      "height" : 16,
+      "id" : "walk_up_1",
+      "width" : 16
+    },
+    {
+      "height" : 16,
+      "id" : "walk_right_0",
+      "width" : 16
+    },
+    {
+      "height" : 16,
+      "id" : "attack_right",
+      "width" : 16
+    }
+  ],
+  "id" : "link_default"
+}

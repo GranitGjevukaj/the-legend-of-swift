@@ -1,0 +1,96 @@
+import Foundation
+
+public struct LoadedContent: Sendable {
+    public var overworld: OverworldData
+    public var dungeons: [DungeonData]
+    public var palettes: PaletteBundle
+    public var enemies: [EnemyDefinition]
+    public var items: [ItemData]
+    public var damageTable: [DamageRule]
+    public var text: [String: String]
+    public var audio: [String: String]
+
+    public init(
+        overworld: OverworldData,
+        dungeons: [DungeonData],
+        palettes: PaletteBundle,
+        enemies: [EnemyDefinition],
+        items: [ItemData],
+        damageTable: [DamageRule],
+        text: [String: String],
+        audio: [String: String]
+    ) {
+        self.overworld = overworld
+        self.dungeons = dungeons
+        self.palettes = palettes
+        self.enemies = enemies
+        self.items = items
+        self.damageTable = damageTable
+        self.text = text
+        self.audio = audio
+    }
+}
+
+public enum ContentLoaderError: Error, LocalizedError {
+    case missingFile(String)
+
+    public var errorDescription: String? {
+        switch self {
+        case let .missingFile(path):
+            return "Missing content file at \(path)"
+        }
+    }
+}
+
+public struct ContentLoader: Sendable {
+    public let baseURL: URL
+    private let decoder: JSONDecoder
+
+    public init(baseURL: URL) {
+        self.baseURL = baseURL
+        self.decoder = JSONDecoder()
+    }
+
+    public static func repositoryDefault(cwd: String = FileManager.default.currentDirectoryPath) -> ContentLoader {
+        ContentLoader(baseURL: URL(fileURLWithPath: cwd).appendingPathComponent("Content/Zelda", isDirectory: true))
+    }
+
+    public func loadAll() throws -> LoadedContent {
+        let overworld: OverworldData = try decode("overworld.json")
+        let palettes: PaletteBundle = try decode("palettes.json")
+        let enemies: [EnemyDefinition] = try decode("enemies.json")
+        let items: [ItemData] = try decode("items.json")
+        let damage: [DamageRule] = try decode("damage_table.json")
+        let text: [String: String] = try decode("text.json")
+        let audio: [String: String] = try decode("audio.json")
+
+        var dungeons: [DungeonData] = []
+        for level in 1...9 {
+            let fileName = "dungeons/dungeon_\(level).json"
+            if let dungeon: DungeonData = try? decode(fileName) {
+                dungeons.append(dungeon)
+            }
+        }
+
+        return LoadedContent(
+            overworld: overworld,
+            dungeons: dungeons,
+            palettes: palettes,
+            enemies: enemies,
+            items: items,
+            damageTable: damage,
+            text: text,
+            audio: audio
+        )
+    }
+
+    public func decode<T: Decodable>(_ relativePath: String) throws -> T {
+        let fileURL = baseURL.appendingPathComponent(relativePath)
+        guard FileManager.default.fileExists(atPath: fileURL.path()) else {
+            throw ContentLoaderError.missingFile(fileURL.path())
+        }
+
+        let data = try Data(contentsOf: fileURL)
+        return try decoder.decode(T.self, from: data)
+    }
+}

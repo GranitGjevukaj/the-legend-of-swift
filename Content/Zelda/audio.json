@@ -1,0 +1,6 @@
+{
+  "boss_theme" : "tempo:150;instrument:noise",
+  "dungeon_theme" : "tempo:118;instrument:triangle",
+  "overworld_theme" : "tempo:132;instrument:pulse",
+  "sfx_sword" : "channel:pulse;length:short"
+}

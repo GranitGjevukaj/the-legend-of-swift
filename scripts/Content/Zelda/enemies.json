@@ -1,0 +1,38 @@
+[
+  {
+    "damage" : 1,
+    "hitPoints" : 2,
+    "id" : "octorok",
+    "speed" : 1
+  },
+  {
+    "damage" : 1,
+    "hitPoints" : 2,
+    "id" : "tektite",
+    "speed" : 2
+  },
+  {
+    "damage" : 1,
+    "hitPoints" : 3,
+    "id" : "leever",
+    "speed" : 1
+  },
+  {
+    "damage" : 2,
+    "hitPoints" : 4,
+    "id" : "peahat",
+    "speed" : 2
+  },
+  {
+    "damage" : 1,
+    "hitPoints" : 3,
+    "id" : "stalfos",
+    "speed" : 1
+  },
+  {
+    "damage" : 2,
+    "hitPoints" : 4,
+    "id" : "gibdo",
+    "speed" : 1
+  }
+]

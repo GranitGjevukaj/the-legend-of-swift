@@ -1,0 +1,34 @@
+[
+  {
+    "id" : "wooden_sword",
+    "name" : "Wooden Sword"
+  },
+  {
+    "id" : "white_sword",
+    "name" : "White Sword"
+  },
+  {
+    "id" : "magic_sword",
+    "name" : "Magic Sword"
+  },
+  {
+    "id" : "bomb",
+    "name" : "Bomb",
+    "shopPrice" : 20
+  },
+  {
+    "id" : "boomerang",
+    "name" : "Boomerang",
+    "shopPrice" : 60
+  },
+  {
+    "id" : "candle",
+    "name" : "Blue Candle",
+    "shopPrice" : 60
+  },
+  {
+    "id" : "arrow",
+    "name" : "Arrow",
+    "shopPrice" : 80
+  }
+]

@@ -1,0 +1,109 @@
+{
+  "level" : 6,
+  "rooms" : [
+    {
+      "doors" : [
+        "north",
+        "south",
+        "west",
+        "east"
+      ],
+      "enemies" : [
+        "stalfos",
+        "gibdo"
+      ],
+      "id" : "D6_R0_default"
+    },
+    {
+      "doors" : [
+        "north",
+        "south",
+        "west",
+        "east"
+      ],
+      "enemies" : [
+        "stalfos",
+        "gibdo"
+      ],
+      "id" : "D6_R1_default"
+    },
+    {
+      "doors" : [
+        "north",
+        "south",
+        "west",
+        "east"
+      ],
+      "enemies" : [
+        "stalfos",
+        "gibdo"
+      ],
+      "id" : "D6_R2_default"
+    },
+    {
+      "doors" : [
+        "north",
+        "south",
+        "west",
+        "east"
+      ],
+      "enemies" : [
+        "stalfos",
+        "gibdo"
+      ],
+      "id" : "D6_R3_default"
+    },
+    {
+      "doors" : [
+        "north",
+        "south",
+        "west",
+        "east"
+      ],
+      "enemies" : [
+        "stalfos",
+        "gibdo"
+      ],
+      "id" : "D6_R4_default"
+    },
+    {
+      "doors" : [
+        "north",
+        "south",
+        "west",
+        "east"
+      ],
+      "enemies" : [
+        "stalfos",
+        "gibdo"
+      ],
+      "id" : "D6_R5_default"
+    },
+    {
+      "doors" : [
+        "north",
+        "south",
+        "west",
+        "east"
+      ],
+      "enemies" : [
+        "stalfos",
+        "gibdo"
+      ],
+      "id" : "D6_R6_default"
+    },
+    {
+      "doors" : [
+        "north",
+        "south",
+        "west",
+        "east"
+      ],
+      "enemies" : [
+        "stalfos",
+        "gibdo"
+      ],
+      "id" : "D6_R7_default"
+    }
+  ]
+}
