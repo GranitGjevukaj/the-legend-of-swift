@@ -14,7 +14,8 @@ public final class GameSession: ObservableObject {
         bootState.startNewGame(slot: 0)
         state = bootState
 
-        scene = GameScene(initialState: bootState)
+        let paletteBundle = try? ContentLoader.repositoryDefault().decode("palettes.json") as PaletteBundle
+        scene = GameScene(initialState: bootState, paletteBundle: paletteBundle)
         scene.onStateChange = { [weak self] newState in
             self?.state = newState
         }
@@ -39,11 +40,17 @@ public final class GameScene: SKScene {
     private var gameLoop = GameLoop()
     private var pendingInput: InputState = .idle
 
-    private let linkNode = SKShapeNode(rectOf: CGSize(width: 12, height: 12), cornerRadius: 2)
+    private let linkNode = SKSpriteNode()
     private let enemyLayer = SKNode()
+    private let linkPaletteBundle: PaletteBundle?
+    private var linkTextures: [Direction: [SKTexture]] = [:]
+    private var lastLinkPosition: Position
+    private var linkWalkFrameIndex = 0
 
-    public init(initialState: GameState) {
+    public init(initialState: GameState, paletteBundle: PaletteBundle? = nil) {
         gameState = initialState
+        linkPaletteBundle = paletteBundle
+        lastLinkPosition = initialState.link.position
         super.init(size: CGSize(width: Room.pixelWidth, height: Room.pixelHeight))
         scaleMode = .aspectFit
         anchorPoint = CGPoint(x: 0, y: 0)
@@ -63,6 +70,8 @@ public final class GameScene: SKScene {
     public func replaceState(with newState: GameState) {
         gameState = newState
         pendingInput = .idle
+        lastLinkPosition = newState.link.position
+        linkWalkFrameIndex = 0
         syncNodes(with: gameState)
         onStateChange?(newState)
     }
@@ -89,14 +98,25 @@ public final class GameScene: SKScene {
         roomFrame.position = CGPoint(x: CGFloat(Room.pixelWidth) / 2, y: CGFloat(Room.pixelHeight) / 2)
         addChild(roomFrame)
 
-        linkNode.fillColor = .green
-        linkNode.strokeColor = .green
+        linkTextures = LinkSpriteAtlas.makeDirectionalTextures(from: linkPaletteBundle)
+        linkNode.size = CGSize(width: 16, height: 16)
+        linkNode.zPosition = 10
+        linkNode.texture = currentLinkTexture(for: gameState.link.facing, walkFrame: 0)
         addChild(linkNode)
 
         addChild(enemyLayer)
     }
 
     private func syncNodes(with state: GameState) {
+        let moved = state.link.position != lastLinkPosition
+        if moved {
+            linkWalkFrameIndex = (linkWalkFrameIndex + 1) % 2
+        } else {
+            linkWalkFrameIndex = 0
+        }
+        lastLinkPosition = state.link.position
+
+        linkNode.texture = currentLinkTexture(for: state.link.facing, walkFrame: linkWalkFrameIndex)
         linkNode.position = CGPoint(x: state.link.position.x, y: state.link.position.y)
 
         enemyLayer.removeAllChildren()
@@ -107,6 +127,13 @@ public final class GameScene: SKScene {
             enemyNode.position = CGPoint(x: enemy.position.x, y: enemy.position.y)
             enemyLayer.addChild(enemyNode)
         }
+    }
+
+    private func currentLinkTexture(for direction: Direction, walkFrame: Int) -> SKTexture? {
+        let directional = linkTextures[direction] ?? linkTextures[.down] ?? []
+        guard !directional.isEmpty else { return nil }
+        let index = walkFrame % directional.count
+        return directional[index]
     }
 
     private func mergeInputs(current: InputState, incoming: InputState) -> InputState {

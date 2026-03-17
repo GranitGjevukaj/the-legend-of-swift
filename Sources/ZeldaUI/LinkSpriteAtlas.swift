@@ -1,0 +1,301 @@
+import CoreGraphics
+import Foundation
+import SpriteKit
+import ZeldaContent
+import ZeldaCore
+
+enum LinkSpriteAtlas {
+    private struct Palette {
+        let outline: RGBA
+        let tunic: RGBA
+        let skin: RGBA
+        let accent: RGBA
+    }
+
+    private struct RGBA {
+        let r: UInt8
+        let g: UInt8
+        let b: UInt8
+        let a: UInt8
+    }
+
+    private static func fallbackTexture() -> SKTexture {
+        let bytes: [UInt8] = [255, 255, 255, 255]
+        let data = Data(bytes) as CFData
+        let provider = CGDataProvider(data: data)!
+        let image = CGImage(
+            width: 1,
+            height: 1,
+            bitsPerComponent: 8,
+            bitsPerPixel: 32,
+            bytesPerRow: 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
+            provider: provider,
+            decode: nil,
+            shouldInterpolate: false,
+            intent: .defaultIntent
+        )!
+
+        let texture = SKTexture(cgImage: image)
+        texture.filteringMode = .nearest
+        return texture
+    }
+
+    static func makeDirectionalTextures(from bundle: PaletteBundle?) -> [Direction: [SKTexture]] {
+        let palette = palette(from: bundle)
+        var textures: [Direction: [SKTexture]] = [:]
+
+        for direction in Direction.allCases {
+            textures[direction] = (0..<2).map { step in
+                let pixels = frame(direction: direction, step: step)
+                return texture(from: pixels, palette: palette)
+            }
+        }
+
+        return textures
+    }
+
+    private static func palette(from bundle: PaletteBundle?) -> Palette {
+        let fallback = Palette(
+            outline: RGBA(r: 18, g: 20, b: 24, a: 255),
+            tunic: RGBA(r: 42, g: 138, b: 72, a: 255),
+            skin: RGBA(r: 240, g: 202, b: 160, a: 255),
+            accent: RGBA(r: 112, g: 78, b: 48, a: 255)
+        )
+
+        guard
+            let bundle,
+            let indices = bundle.spritePalettes["link"],
+            indices.count >= 4
+        else {
+            return fallback
+        }
+
+        let outline = color(bundle: bundle, index: indices[0]) ?? fallback.outline
+        let accent = color(bundle: bundle, index: indices[1]) ?? fallback.accent
+        let tunic = color(bundle: bundle, index: indices[2]) ?? fallback.tunic
+        let skin = color(bundle: bundle, index: indices[3]) ?? fallback.skin
+        return Palette(outline: outline, tunic: tunic, skin: skin, accent: accent)
+    }
+
+    private static func color(bundle: PaletteBundle, index: Int) -> RGBA? {
+        guard bundle.nesColors.indices.contains(index) else {
+            return nil
+        }
+        return parseHexColor(bundle.nesColors[index])
+    }
+
+    private static func parseHexColor(_ hex: String) -> RGBA? {
+        guard hex.count == 7, hex.hasPrefix("#") else {
+            return nil
+        }
+
+        let valueString = String(hex.dropFirst())
+        guard let value = Int(valueString, radix: 16) else {
+            return nil
+        }
+
+        let r = UInt8((value >> 16) & 0xFF)
+        let g = UInt8((value >> 8) & 0xFF)
+        let b = UInt8(value & 0xFF)
+        return RGBA(r: r, g: g, b: b, a: 255)
+    }
+
+    private static func frame(direction: Direction, step: Int) -> [UInt8] {
+        switch direction {
+        case .down:
+            return downFrame(step: step)
+        case .up:
+            return upFrame(step: step)
+        case .left:
+            return leftFrame(step: step)
+        case .right:
+            return mirrorHorizontally(leftFrame(step: step))
+        }
+    }
+
+    private static func downFrame(step: Int) -> [UInt8] {
+        var pixels = emptyFrame()
+
+        fill(&pixels, x: 4, y: 0, width: 8, height: 3, color: 2)
+        fill(&pixels, x: 5, y: 3, width: 6, height: 3, color: 3)
+        fill(&pixels, x: 5, y: 6, width: 6, height: 6, color: 2)
+        fill(&pixels, x: 5, y: 9, width: 6, height: 1, color: 4)
+
+        if step == 0 {
+            fill(&pixels, x: 3, y: 7, width: 2, height: 3, color: 2)
+            fill(&pixels, x: 11, y: 7, width: 2, height: 3, color: 2)
+            fill(&pixels, x: 5, y: 12, width: 2, height: 3, color: 3)
+            fill(&pixels, x: 9, y: 12, width: 2, height: 3, color: 3)
+        } else {
+            fill(&pixels, x: 3, y: 8, width: 2, height: 3, color: 2)
+            fill(&pixels, x: 11, y: 6, width: 2, height: 3, color: 2)
+            fill(&pixels, x: 4, y: 12, width: 2, height: 3, color: 3)
+            fill(&pixels, x: 10, y: 12, width: 2, height: 3, color: 3)
+        }
+
+        return outlined(pixels)
+    }
+
+    private static func upFrame(step: Int) -> [UInt8] {
+        var pixels = emptyFrame()
+
+        fill(&pixels, x: 4, y: 0, width: 8, height: 4, color: 2)
+        fill(&pixels, x: 6, y: 3, width: 4, height: 1, color: 3)
+        fill(&pixels, x: 5, y: 4, width: 6, height: 8, color: 2)
+        fill(&pixels, x: 5, y: 8, width: 6, height: 1, color: 4)
+
+        if step == 0 {
+            fill(&pixels, x: 4, y: 7, width: 2, height: 3, color: 2)
+            fill(&pixels, x: 10, y: 7, width: 2, height: 3, color: 2)
+            fill(&pixels, x: 5, y: 12, width: 2, height: 3, color: 3)
+            fill(&pixels, x: 9, y: 12, width: 2, height: 3, color: 3)
+        } else {
+            fill(&pixels, x: 4, y: 6, width: 2, height: 3, color: 2)
+            fill(&pixels, x: 10, y: 8, width: 2, height: 3, color: 2)
+            fill(&pixels, x: 4, y: 12, width: 2, height: 3, color: 3)
+            fill(&pixels, x: 10, y: 12, width: 2, height: 3, color: 3)
+        }
+
+        return outlined(pixels)
+    }
+
+    private static func leftFrame(step: Int) -> [UInt8] {
+        var pixels = emptyFrame()
+
+        fill(&pixels, x: 4, y: 0, width: 7, height: 3, color: 2)
+        fill(&pixels, x: 4, y: 3, width: 3, height: 3, color: 3)
+        fill(&pixels, x: 5, y: 4, width: 5, height: 8, color: 2)
+        fill(&pixels, x: 5, y: 8, width: 5, height: 1, color: 4)
+        fill(&pixels, x: 3, y: 7, width: 2, height: 3, color: 2)
+        fill(&pixels, x: 10, y: 7, width: 2, height: 2, color: 3)
+
+        if step == 0 {
+            fill(&pixels, x: 5, y: 12, width: 2, height: 3, color: 3)
+            fill(&pixels, x: 8, y: 12, width: 2, height: 3, color: 3)
+        } else {
+            fill(&pixels, x: 4, y: 12, width: 2, height: 3, color: 3)
+            fill(&pixels, x: 9, y: 12, width: 2, height: 3, color: 3)
+        }
+
+        return outlined(pixels)
+    }
+
+    private static func emptyFrame() -> [UInt8] {
+        Array(repeating: 0, count: 16 * 16)
+    }
+
+    private static func fill(
+        _ pixels: inout [UInt8],
+        x: Int,
+        y: Int,
+        width: Int,
+        height: Int,
+        color: UInt8
+    ) {
+        guard width > 0, height > 0 else { return }
+
+        let minX = max(0, x)
+        let minY = max(0, y)
+        let maxX = min(16, x + width)
+        let maxY = min(16, y + height)
+
+        guard minX < maxX, minY < maxY else { return }
+
+        for row in minY..<maxY {
+            for column in minX..<maxX {
+                pixels[(row * 16) + column] = color
+            }
+        }
+    }
+
+    private static func mirrorHorizontally(_ pixels: [UInt8]) -> [UInt8] {
+        var mirrored = emptyFrame()
+        for row in 0..<16 {
+            for column in 0..<16 {
+                let source = (row * 16) + column
+                let destination = (row * 16) + (15 - column)
+                mirrored[destination] = pixels[source]
+            }
+        }
+        return mirrored
+    }
+
+    private static func outlined(_ pixels: [UInt8]) -> [UInt8] {
+        var result = pixels
+
+        for row in 0..<16 {
+            for column in 0..<16 {
+                let index = (row * 16) + column
+                guard pixels[index] > 1 else { continue }
+
+                for yOffset in -1...1 {
+                    for xOffset in -1...1 {
+                        if xOffset == 0, yOffset == 0 {
+                            continue
+                        }
+                        let x = column + xOffset
+                        let y = row + yOffset
+                        guard (0..<16).contains(x), (0..<16).contains(y) else { continue }
+                        let neighbor = (y * 16) + x
+                        if pixels[neighbor] == 0 {
+                            result[neighbor] = 1
+                        }
+                    }
+                }
+            }
+        }
+
+        return result
+    }
+
+    private static func texture(from pixels: [UInt8], palette: Palette) -> SKTexture {
+        var rgba = Array(repeating: UInt8(0), count: 16 * 16 * 4)
+        for (index, pixel) in pixels.enumerated() {
+            let color: RGBA
+            switch pixel {
+            case 1:
+                color = palette.outline
+            case 2:
+                color = palette.tunic
+            case 3:
+                color = palette.skin
+            case 4:
+                color = palette.accent
+            default:
+                color = RGBA(r: 0, g: 0, b: 0, a: 0)
+            }
+
+            let base = index * 4
+            rgba[base] = color.r
+            rgba[base + 1] = color.g
+            rgba[base + 2] = color.b
+            rgba[base + 3] = color.a
+        }
+
+        let data = Data(rgba) as CFData
+        guard
+            let provider = CGDataProvider(data: data),
+            let image = CGImage(
+                width: 16,
+                height: 16,
+                bitsPerComponent: 8,
+                bitsPerPixel: 32,
+                bytesPerRow: 64,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
+                provider: provider,
+                decode: nil,
+                shouldInterpolate: false,
+                intent: .defaultIntent
+            )
+        else {
+            return fallbackTexture()
+        }
+
+        let texture = SKTexture(cgImage: image)
+        texture.filteringMode = .nearest
+        return texture
+    }
+}
