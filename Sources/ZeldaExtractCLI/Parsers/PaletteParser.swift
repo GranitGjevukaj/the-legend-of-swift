@@ -10,17 +10,18 @@ struct PaletteParser {
         let paletteBlocks = blocks.filter { searchableKey(for: $0).contains("pal") || searchableKey(for: $0).contains("palette") }
         let combinedSource = paletteBytes.isEmpty ? paletteBlocks.flatMap(\.bytes) : paletteBytes
         let combined = combinedSource.map { Int($0 & 0x3F) }
-        let overworldPaletteRows = overworldPaletteRows(from: blocks)
+        let levelInfoPaletteRows = levelInfoPaletteRows(from: blocks)
+        let overworldPaletteRows = levelInfoPaletteRows.map { Array($0.prefix(4)) }
 
         let areaPalettes = [
-            "overworld": palette(preferred: ["overworld", "ow"], fallbackChunk: 0, blocks: paletteBlocks, combined: combined, defaultValue: [15, 17, 33, 45]),
+            "overworld": levelInfoPaletteRows?[safe: 0] ?? palette(preferred: ["overworld", "ow"], fallbackChunk: 0, blocks: paletteBlocks, combined: combined, defaultValue: [15, 17, 33, 45]),
             "dungeon_1": palette(preferred: ["dungeon", "level1", "dng1"], fallbackChunk: 1, blocks: paletteBlocks, combined: combined, defaultValue: [15, 1, 17, 32]),
             "dungeon_9": palette(preferred: ["dungeon9", "level9", "dng9"], fallbackChunk: 2, blocks: paletteBlocks, combined: combined, defaultValue: [15, 6, 22, 38])
         ]
 
         let spritePalettes = [
-            "link": palette(preferred: ["link", "player"], fallbackChunk: 3, blocks: paletteBlocks, combined: combined, defaultValue: [15, 30, 44, 57]),
-            "enemies": palette(preferred: ["enemy", "monster"], fallbackChunk: 4, blocks: paletteBlocks, combined: combined, defaultValue: [15, 10, 25, 40])
+            "link": levelInfoPaletteRows?[safe: 4] ?? palette(preferred: ["link", "player"], fallbackChunk: 3, blocks: paletteBlocks, combined: combined, defaultValue: [15, 30, 44, 57]),
+            "enemies": levelInfoPaletteRows?[safe: 5] ?? palette(preferred: ["enemy", "monster"], fallbackChunk: 4, blocks: paletteBlocks, combined: combined, defaultValue: [15, 10, 25, 40])
         ]
 
         let areaPaletteSets: [String: [[Int]]]? = if let overworldPaletteRows {
@@ -37,7 +38,7 @@ struct PaletteParser {
         )
     }
 
-    private func overworldPaletteRows(from blocks: [ASMByteBlock]) -> [[Int]]? {
+    private func levelInfoPaletteRows(from blocks: [ASMByteBlock]) -> [[Int]]? {
         guard
             let levelInfoOW = blocks.first(where: { normalize($0.label) == "levelinfoow" })?.bytes,
             levelInfoOW.count >= 3
@@ -59,9 +60,9 @@ struct PaletteParser {
 
             let payload = levelInfoOW[payloadStart..<payloadEnd].map { Int($0 & 0x3F) }
             var rows: [[Int]] = []
-            rows.reserveCapacity(4)
+            rows.reserveCapacity(8)
 
-            for rowStart in stride(from: 0, to: 16, by: 4) {
+            for rowStart in stride(from: 0, to: 32, by: 4) {
                 rows.append(Array(payload[rowStart..<(rowStart + 4)]))
             }
 
@@ -118,4 +119,11 @@ private extension PaletteParser {
         "#FCFCFC", "#A4E4FC", "#B8B8F8", "#D8B8F8", "#F8B8F8", "#F8A4C0", "#F0D0B0", "#FCE0A8",
         "#F8D878", "#D8F878", "#B8F8B8", "#B8F8D8", "#00FCFC", "#F8D8F8", "#000000", "#000000"
     ]
+}
+
+private extension Array {
+    subscript(safe index: Int) -> Element? {
+        guard indices.contains(index) else { return nil }
+        return self[index]
+    }
 }

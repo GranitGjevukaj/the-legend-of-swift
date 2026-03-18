@@ -5,7 +5,7 @@ import ZeldaContent
 import ZeldaCore
 
 enum LinkSpriteAtlas {
-    private struct Palette {
+    private struct FallbackPalette {
         let outline: RGBA
         let tunic: RGBA
         let skin: RGBA
@@ -19,45 +19,96 @@ enum LinkSpriteAtlas {
         let a: UInt8
     }
 
-    private static func fallbackTexture() -> SKTexture {
-        let bytes: [UInt8] = [255, 255, 255, 255]
-        let data = Data(bytes) as CFData
-        let provider = CGDataProvider(data: data)!
-        let image = CGImage(
-            width: 1,
-            height: 1,
-            bitsPerComponent: 8,
-            bitsPerPixel: 32,
-            bytesPerRow: 4,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
-            provider: provider,
-            decode: nil,
-            shouldInterpolate: false,
-            intent: .defaultIntent
-        )!
+    static func makeDirectionalTextures(from bundle: PaletteBundle?, spriteSheet: SpriteSheet?) -> [Direction: [SKTexture]] {
+        if let extracted = extractedDirectionalTextures(from: spriteSheet, bundle: bundle) {
+            return extracted
+        }
 
-        let texture = SKTexture(cgImage: image)
-        texture.filteringMode = .nearest
-        return texture
-    }
-
-    static func makeDirectionalTextures(from bundle: PaletteBundle?) -> [Direction: [SKTexture]] {
-        let palette = palette(from: bundle)
+        let palette = fallbackPalette(from: bundle)
         var textures: [Direction: [SKTexture]] = [:]
 
         for direction in Direction.allCases {
             textures[direction] = (0..<2).map { step in
-                let pixels = frame(direction: direction, step: step)
-                return texture(from: pixels, palette: palette)
+                let pixels = fallbackFrame(direction: direction, step: step)
+                return texture(from: pixels, fallbackPalette: palette)
             }
         }
 
         return textures
     }
 
-    private static func palette(from bundle: PaletteBundle?) -> Palette {
-        let fallback = Palette(
+    private static func extractedDirectionalTextures(from spriteSheet: SpriteSheet?, bundle: PaletteBundle?) -> [Direction: [SKTexture]]? {
+        guard
+            let spriteSheet,
+            let horizontal0 = frame(named: "horizontal_0", in: spriteSheet),
+            let horizontal1 = frame(named: "horizontal_1", in: spriteSheet),
+            let down = frame(named: "down", in: spriteSheet),
+            let up = frame(named: "up", in: spriteSheet)
+        else {
+            return nil
+        }
+
+        let palette = extractedPalette(from: bundle)
+        let left0 = mirrorHorizontally(horizontal0)
+        let left1 = mirrorHorizontally(horizontal1)
+        let downStep1 = mirrorHorizontally(down)
+        let upStep1 = mirrorHorizontally(up)
+
+        return [
+            .right: [
+                texture(from: horizontal0, extractedPalette: palette),
+                texture(from: horizontal1, extractedPalette: palette)
+            ],
+            .left: [
+                texture(from: left0, extractedPalette: palette),
+                texture(from: left1, extractedPalette: palette)
+            ],
+            .down: [
+                texture(from: up, extractedPalette: palette),
+                texture(from: upStep1, extractedPalette: palette)
+            ],
+            .up: [
+                texture(from: down, extractedPalette: palette),
+                texture(from: downStep1, extractedPalette: palette)
+            ]
+        ]
+    }
+
+    private static func frame(named id: String, in spriteSheet: SpriteSheet) -> [UInt8]? {
+        guard
+            let frame = spriteSheet.frames.first(where: { $0.id == id }),
+            let pixels = frame.pixels,
+            pixels.count == 16 * 16
+        else {
+            return nil
+        }
+        return pixels
+    }
+
+    private static func extractedPalette(from bundle: PaletteBundle?) -> [RGBA] {
+        let fallback = [
+            RGBA(r: 0, g: 0, b: 0, a: 0),
+            RGBA(r: 24, g: 24, b: 32, a: 255),
+            RGBA(r: 0, g: 168, b: 0, a: 255),
+            RGBA(r: 240, g: 208, b: 176, a: 255)
+        ]
+
+        guard
+            let bundle,
+            let indices = bundle.spritePalettes["link"],
+            indices.count >= 4
+        else {
+            return fallback
+        }
+
+        let slot1 = color(bundle: bundle, index: indices[1]) ?? fallback[1]
+        let slot2 = color(bundle: bundle, index: indices[2]) ?? fallback[2]
+        let slot3 = color(bundle: bundle, index: indices[3]) ?? fallback[3]
+        return [fallback[0], slot1, slot2, slot3]
+    }
+
+    private static func fallbackPalette(from bundle: PaletteBundle?) -> FallbackPalette {
+        let fallback = FallbackPalette(
             outline: RGBA(r: 18, g: 20, b: 24, a: 255),
             tunic: RGBA(r: 42, g: 138, b: 72, a: 255),
             skin: RGBA(r: 240, g: 202, b: 160, a: 255),
@@ -73,10 +124,10 @@ enum LinkSpriteAtlas {
         }
 
         let outline = color(bundle: bundle, index: indices[0]) ?? fallback.outline
-        let accent = color(bundle: bundle, index: indices[1]) ?? fallback.accent
-        let tunic = color(bundle: bundle, index: indices[2]) ?? fallback.tunic
-        let skin = color(bundle: bundle, index: indices[3]) ?? fallback.skin
-        return Palette(outline: outline, tunic: tunic, skin: skin, accent: accent)
+        let tunic = color(bundle: bundle, index: indices[1]) ?? fallback.tunic
+        let skin = color(bundle: bundle, index: indices[2]) ?? fallback.skin
+        let accent = color(bundle: bundle, index: indices[3]) ?? fallback.accent
+        return FallbackPalette(outline: outline, tunic: tunic, skin: skin, accent: accent)
     }
 
     private static func color(bundle: PaletteBundle, index: Int) -> RGBA? {
@@ -102,12 +153,12 @@ enum LinkSpriteAtlas {
         return RGBA(r: r, g: g, b: b, a: 255)
     }
 
-    private static func frame(direction: Direction, step: Int) -> [UInt8] {
+    private static func fallbackFrame(direction: Direction, step: Int) -> [UInt8] {
         switch direction {
         case .down:
-            return downFrame(step: step)
-        case .up:
             return upFrame(step: step)
+        case .up:
+            return downFrame(step: step)
         case .left:
             return leftFrame(step: step)
         case .right:
@@ -250,19 +301,33 @@ enum LinkSpriteAtlas {
         return result
     }
 
-    private static func texture(from pixels: [UInt8], palette: Palette) -> SKTexture {
+    private static func texture(from pixels: [UInt8], extractedPalette: [RGBA]) -> SKTexture {
+        var rgba = Array(repeating: UInt8(0), count: 16 * 16 * 4)
+        for (index, pixel) in pixels.enumerated() {
+            let color = extractedPalette.indices.contains(Int(pixel)) ? extractedPalette[Int(pixel)] : RGBA(r: 0, g: 0, b: 0, a: 0)
+            let base = index * 4
+            rgba[base] = color.r
+            rgba[base + 1] = color.g
+            rgba[base + 2] = color.b
+            rgba[base + 3] = color.a
+        }
+
+        return texture(from: rgba)
+    }
+
+    private static func texture(from pixels: [UInt8], fallbackPalette: FallbackPalette) -> SKTexture {
         var rgba = Array(repeating: UInt8(0), count: 16 * 16 * 4)
         for (index, pixel) in pixels.enumerated() {
             let color: RGBA
             switch pixel {
             case 1:
-                color = palette.outline
+                color = fallbackPalette.outline
             case 2:
-                color = palette.tunic
+                color = fallbackPalette.tunic
             case 3:
-                color = palette.skin
+                color = fallbackPalette.skin
             case 4:
-                color = palette.accent
+                color = fallbackPalette.accent
             default:
                 color = RGBA(r: 0, g: 0, b: 0, a: 0)
             }
@@ -274,6 +339,10 @@ enum LinkSpriteAtlas {
             rgba[base + 3] = color.a
         }
 
+        return texture(from: rgba)
+    }
+
+    private static func texture(from rgba: [UInt8]) -> SKTexture {
         let data = Data(rgba) as CFData
         guard
             let provider = CGDataProvider(data: data),
@@ -293,6 +362,29 @@ enum LinkSpriteAtlas {
         else {
             return fallbackTexture()
         }
+
+        let texture = SKTexture(cgImage: image)
+        texture.filteringMode = .nearest
+        return texture
+    }
+
+    private static func fallbackTexture() -> SKTexture {
+        let bytes: [UInt8] = [255, 255, 255, 255]
+        let data = Data(bytes) as CFData
+        let provider = CGDataProvider(data: data)!
+        let image = CGImage(
+            width: 1,
+            height: 1,
+            bitsPerComponent: 8,
+            bitsPerPixel: 32,
+            bytesPerRow: 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
+            provider: provider,
+            decode: nil,
+            shouldInterpolate: false,
+            intent: .defaultIntent
+        )!
 
         let texture = SKTexture(cgImage: image)
         texture.filteringMode = .nearest

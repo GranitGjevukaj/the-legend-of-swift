@@ -9,7 +9,8 @@ Implemented foundation milestone:
 - Multi-target Swift package architecture (`ZeldaCore`, `ZeldaContent`, `ZeldaUI`, `ZeldaExtractCLI`, `ZeldaTelemetry`, `ZeldaHarness`)
 - Headless game loop/state with movement, collision, pause, transitions, and combat stubs
 - Deterministic extraction CLI producing `Content/Zelda` artifacts
-: Overworld, palettes, dungeons, tilesets, enemies, items, damage tables, text, audio metadata, and sprite frame manifests now consume ASM byte tables (`.byte`/`.db`) and `.incbin` payloads when provided
+: Overworld, palettes, dungeons, tilesets, enemies, items, damage tables, text, audio metadata, and sprite manifests now consume ASM byte tables (`.byte`/`.db`) and `.incbin` payloads when provided
+: Link walking sprites now extract real ROM-backed frame pixels for the runtime renderer instead of placeholder-only manifests
 : Extraction now routes through a centralized Zelda disassembly symbol catalog with exact-label + bank/file-hint priority before generic keyword fallback
 - SwiftUI + SpriteKit macOS shell (`zelda-mac`) with title, file select, and playable room
 - Test suite for core/content/extraction determinism

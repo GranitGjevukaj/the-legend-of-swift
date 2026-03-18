@@ -26,9 +26,10 @@ enum OverworldScreenTextureBuilder {
                 guard screen.metatileGrid.indices.contains(gridIndex) else { continue }
                 let paletteSelector = screen.paletteSelectorGrid?[gridIndex] ?? 0
                 let palette = paletteRows[min(max(0, paletteSelector), paletteRows.count - 1)]
+                let roomFlags = screen.roomFlags ?? 0
 
                 let descriptor = abs(screen.metatileGrid[gridIndex])
-                let squareTiles = OverworldSquareDecoder.tiles(for: descriptor)
+                let squareTiles = OverworldSquareDecoder.tiles(for: descriptor, roomFlags: roomFlags)
 
                 for pixelY in 0..<Room.tileSize {
                     for pixelX in 0..<Room.tileSize {

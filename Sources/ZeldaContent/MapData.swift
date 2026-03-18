@@ -4,11 +4,21 @@ public struct OverworldData: Codable, Equatable, Sendable {
     public var width: Int
     public var height: Int
     public var screens: [OverworldScreen]
+    public var startRoomId: Int?
+    public var startY: Int?
 
-    public init(width: Int, height: Int, screens: [OverworldScreen]) {
+    public init(
+        width: Int,
+        height: Int,
+        screens: [OverworldScreen],
+        startRoomId: Int? = nil,
+        startY: Int? = nil
+    ) {
         self.width = width
         self.height = height
         self.screens = screens
+        self.startRoomId = startRoomId
+        self.startY = startY
     }
 }
 
@@ -19,6 +29,7 @@ public struct OverworldScreen: Codable, Equatable, Sendable {
     public var metatileGrid: [Int]
     public var exits: [String]
     public var paletteSelectorGrid: [Int]?
+    public var roomFlags: Int?
 
     public init(
         id: String,
@@ -26,7 +37,8 @@ public struct OverworldScreen: Codable, Equatable, Sendable {
         row: Int,
         metatileGrid: [Int],
         exits: [String],
-        paletteSelectorGrid: [Int]? = nil
+        paletteSelectorGrid: [Int]? = nil,
+        roomFlags: Int? = nil
     ) {
         self.id = id
         self.column = column
@@ -34,6 +46,7 @@ public struct OverworldScreen: Codable, Equatable, Sendable {
         self.metatileGrid = metatileGrid
         self.exits = exits
         self.paletteSelectorGrid = paletteSelectorGrid
+        self.roomFlags = roomFlags
     }
 }
 

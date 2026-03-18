@@ -22,23 +22,61 @@ enum OverworldSquareDecoder {
         0x26, 0x26, 0x26, 0x26, 0x89, 0x88, 0x8B, 0x88
     ]
 
-    static func tiles(for descriptor: Int) -> [Int] {
-        let squareIndex = descriptor & 0x3F
+    static func tiles(for descriptor: Int, roomFlags: Int = 0) -> [Int] {
+        let resolved = resolvedSquare(for: descriptor, roomFlags: roomFlags)
 
-        if squareIndex < 0x10 {
+        switch resolved {
+        case let .secondary(squareIndex):
             let base = squareIndex * 4
             guard base + 3 < secondarySquaresOW.count else {
                 return [0, 0, 0, 0]
             }
             return Array(secondarySquaresOW[base...(base + 3)])
+        case let .primary(tile):
+            let resolvedTile = remappedPrimaryTile(tile)
+            return [resolvedTile, resolvedTile + 1, resolvedTile + 2, resolvedTile + 3]
+        }
+    }
+
+    static func isWalkable(descriptor: Int, roomFlags: Int = 0) -> Bool {
+        let resolved = resolvedSquare(for: descriptor, roomFlags: roomFlags)
+
+        switch resolved {
+        case let .secondary(squareIndex):
+            return walkableSecondarySquares.contains(squareIndex)
+        case let .primary(tile):
+            return !blockedPrimaryTiles.contains(remappedPrimaryTile(tile))
+        }
+    }
+
+    private static func resolvedSquare(for descriptor: Int, roomFlags: Int) -> ResolvedSquare {
+        let originalSquareIndex = descriptor & 0x3F
+        guard originalSquareIndex < primarySquaresOW.count else {
+            return .secondary(0)
         }
 
-        guard squareIndex < primarySquaresOW.count else {
-            return [0, 0, 0, 0]
+        let secretFound = (roomFlags & 0x80) != 0
+        let originalPrimary = primarySquaresOW[originalSquareIndex]
+
+        var squareIndex = originalSquareIndex
+        var primaryTile = originalPrimary
+
+        if secretFound {
+            if originalPrimary == 0xE7 || originalPrimary == 0xEA {
+                // Turn tree/special armos into stairs square.
+                squareIndex = 0x10
+                primaryTile = 0x70
+            } else if originalPrimary == 0xE6 {
+                // Turn rock wall into cave entrance square.
+                squareIndex = 0x0C
+            }
         }
 
-        let tile = remappedPrimaryTile(primarySquaresOW[squareIndex])
-        return [tile, tile + 1, tile + 2, tile + 3]
+        if squareIndex < 0x10 {
+            return .secondary(squareIndex)
+        }
+
+        return .primary(primaryTile)
     }
 
     private static func remappedPrimaryTile(_ tile: Int) -> Int {
@@ -52,4 +90,22 @@ enum OverworldSquareDecoder {
         default: return tile
         }
     }
+
+    private enum ResolvedSquare {
+        case secondary(Int)
+        case primary(Int)
+    }
+
+    private static let walkableSecondarySquares: Set<Int> = [
+        0x0C, // cave opening
+        0x0E, // open ground
+        0x0F  // open ground variant
+    ]
+
+    private static let blockedPrimaryTiles: Set<Int> = [
+        0x74, 0x76, 0x78, 0x7A, 0x7E, 0x80,
+        0x8D, 0x8E, 0x8F, 0x90, 0x92, 0x93, 0x95, 0x96, 0x97, 0x98, 0x9A, 0x9C,
+        0xA0, 0xA2, 0xA6, 0xAA, 0xAC, 0xB0, 0xB4, 0xB8, 0xBC, 0xC0, 0xC4, 0xC8,
+        0xCC, 0xCE, 0xD0, 0xD4, 0xD8, 0xDC, 0xE0
+    ]
 }

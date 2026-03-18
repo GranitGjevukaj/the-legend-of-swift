@@ -4,6 +4,7 @@ public struct LoadedContent: Sendable {
     public var overworld: OverworldData
     public var dungeons: [DungeonData]
     public var palettes: PaletteBundle
+    public var linkSpriteSheet: SpriteSheet?
     public var enemies: [EnemyDefinition]
     public var items: [ItemData]
     public var damageTable: [DamageRule]
@@ -14,6 +15,7 @@ public struct LoadedContent: Sendable {
         overworld: OverworldData,
         dungeons: [DungeonData],
         palettes: PaletteBundle,
+        linkSpriteSheet: SpriteSheet? = nil,
         enemies: [EnemyDefinition],
         items: [ItemData],
         damageTable: [DamageRule],
@@ -23,6 +25,7 @@ public struct LoadedContent: Sendable {
         self.overworld = overworld
         self.dungeons = dungeons
         self.palettes = palettes
+        self.linkSpriteSheet = linkSpriteSheet
         self.enemies = enemies
         self.items = items
         self.damageTable = damageTable
@@ -80,6 +83,7 @@ public struct ContentLoader: Sendable {
     public func loadAll() throws -> LoadedContent {
         let overworld: OverworldData = try decode("overworld.json")
         let palettes: PaletteBundle = try decode("palettes.json")
+        let linkSpriteSheet = try loadLinkSpriteSheet()
         let enemies: [EnemyDefinition] = try decode("enemies.json")
         let items: [ItemData] = try decode("items.json")
         let damage: [DamageRule] = try decode("damage_table.json")
@@ -98,6 +102,7 @@ public struct ContentLoader: Sendable {
             overworld: overworld,
             dungeons: dungeons,
             palettes: palettes,
+            linkSpriteSheet: linkSpriteSheet,
             enemies: enemies,
             items: items,
             damageTable: damage,
@@ -114,5 +119,37 @@ public struct ContentLoader: Sendable {
 
         let data = try Data(contentsOf: fileURL)
         return try decoder.decode(T.self, from: data)
+    }
+
+    private func loadLinkSpriteSheet() throws -> SpriteSheet? {
+        let spritesURL = baseURL.appendingPathComponent("sprites", isDirectory: true)
+        guard FileManager.default.fileExists(atPath: spritesURL.path()) else {
+            return nil
+        }
+
+        let candidates = try FileManager.default.contentsOfDirectory(
+            at: spritesURL,
+            includingPropertiesForKeys: [.contentModificationDateKey],
+            options: [.skipsHiddenFiles]
+        )
+        .filter { url in
+            let name = url.lastPathComponent
+            return name.hasPrefix("link_") && name.hasSuffix(".json")
+        }
+        .sorted { lhs, rhs in
+            let lhsDate = (try? lhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            let rhsDate = (try? rhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            if lhsDate == rhsDate {
+                return lhs.lastPathComponent < rhs.lastPathComponent
+            }
+            return lhsDate > rhsDate
+        }
+
+        guard let selected = candidates.first else {
+            return nil
+        }
+
+        let data = try Data(contentsOf: selected)
+        return try decoder.decode(SpriteSheet.self, from: data)
     }
 }

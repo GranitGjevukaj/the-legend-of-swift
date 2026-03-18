@@ -90,9 +90,17 @@ public struct GameState: Sendable {
     }
 
     public mutating func startNewGame(slot: Int) {
+        startNewGame(slot: slot, startScreen: ScreenCoordinate(column: 7, row: 3))
+    }
+
+    public mutating func startNewGame(slot: Int, startScreen: ScreenCoordinate) {
+        startNewGame(slot: slot, startScreen: startScreen, startLink: nil)
+    }
+
+    public mutating func startNewGame(slot: Int, startScreen: ScreenCoordinate, startLink: Link?) {
         self.slot = slot
-        currentScreen = ScreenCoordinate(column: 7, row: 3)
-        link = .spawnPoint
+        currentScreen = startScreen
+        link = startLink ?? .spawnPoint
         enemies = []
         projectiles = []
         inventory = .starter

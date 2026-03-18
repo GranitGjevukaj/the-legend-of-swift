@@ -8,20 +8,28 @@ import ZeldaCore
 public final class GameSession: ObservableObject {
     @Published public private(set) var state: GameState
     public let scene: GameScene
+    private let defaultStartScreen: ScreenCoordinate
+    private let defaultStartLink: ZeldaCore.Link
+    private let runtimeOverworld: Overworld
 
     public init() {
-        var bootState = GameState()
-        bootState.startNewGame(slot: 0)
-        state = bootState
-
         let loader = ContentLoader.repositoryDefault()
         let loadedContent = try? loader.loadAll()
+        defaultStartScreen = Self.screenCoordinate(from: loadedContent?.overworld.startRoomId) ?? ScreenCoordinate(column: 7, row: 3)
+        defaultStartLink = Self.linkSpawn(from: loadedContent?.overworld) ?? .spawnPoint
+        runtimeOverworld = OverworldContentBuilder.build(from: loadedContent?.overworld)
+
+        var bootState = GameState(overworld: runtimeOverworld)
+        bootState.startNewGame(slot: 0, startScreen: defaultStartScreen, startLink: defaultStartLink)
+        state = bootState
+
         let tileSet = try? loader.decode("tilesets/overworld.json") as TileSet
         scene = GameScene(
             initialState: bootState,
             paletteBundle: loadedContent?.palettes,
             overworldData: loadedContent?.overworld,
-            overworldTileSet: tileSet
+            overworldTileSet: tileSet,
+            linkSpriteSheet: loadedContent?.linkSpriteSheet
         )
         scene.onStateChange = { [weak self] newState in
             self?.state = newState
@@ -29,14 +37,35 @@ public final class GameSession: ObservableObject {
     }
 
     public func start(slot: Int) {
-        var freshState = GameState()
-        freshState.startNewGame(slot: slot)
+        var freshState = GameState(overworld: runtimeOverworld)
+        freshState.startNewGame(slot: slot, startScreen: defaultStartScreen, startLink: defaultStartLink)
         state = freshState
         scene.replaceState(with: freshState)
     }
 
     public func send(_ input: InputState) {
         scene.enqueue(input: input)
+    }
+
+    private static func screenCoordinate(from roomId: Int?) -> ScreenCoordinate? {
+        guard let roomId, (0..<(Overworld.width * Overworld.height)).contains(roomId) else {
+            return nil
+        }
+        return ScreenCoordinate(column: roomId & 0x0F, row: roomId >> 4)
+    }
+
+    private static func linkSpawn(from overworld: OverworldData?) -> ZeldaCore.Link? {
+        guard let startY = overworld?.startY else {
+            return nil
+        }
+
+        return ZeldaCore.Link(
+            position: Position(x: 0x78, y: startY),
+            facing: .up,
+            hearts: 3,
+            maxHearts: 3,
+            speed: 2
+        )
     }
 }
 
@@ -53,6 +82,7 @@ public final class GameScene: SKScene {
     private let linkPaletteBundle: PaletteBundle?
     private let overworldData: OverworldData?
     private let overworldTileSet: TileSet?
+    private let linkSpriteSheet: SpriteSheet?
     private var linkTextures: [Direction: [SKTexture]] = [:]
     private var backgroundTextureCache: [ScreenCoordinate: SKTexture] = [:]
     private var lastLinkPosition: Position
@@ -63,12 +93,14 @@ public final class GameScene: SKScene {
         initialState: GameState,
         paletteBundle: PaletteBundle? = nil,
         overworldData: OverworldData? = nil,
-        overworldTileSet: TileSet? = nil
+        overworldTileSet: TileSet? = nil,
+        linkSpriteSheet: SpriteSheet? = nil
     ) {
         gameState = initialState
         linkPaletteBundle = paletteBundle
         self.overworldData = overworldData
         self.overworldTileSet = overworldTileSet
+        self.linkSpriteSheet = linkSpriteSheet
         lastLinkPosition = initialState.link.position
         super.init(size: CGSize(width: Room.pixelWidth, height: Room.pixelHeight))
         scaleMode = .aspectFit
@@ -125,7 +157,7 @@ public final class GameScene: SKScene {
         roomFrame.zPosition = -10
         addChild(roomFrame)
 
-        linkTextures = LinkSpriteAtlas.makeDirectionalTextures(from: linkPaletteBundle)
+        linkTextures = LinkSpriteAtlas.makeDirectionalTextures(from: linkPaletteBundle, spriteSheet: linkSpriteSheet)
         linkNode.size = CGSize(width: 16, height: 16)
         linkNode.zPosition = 10
         linkNode.texture = currentLinkTexture(for: gameState.link.facing, walkFrame: 0)

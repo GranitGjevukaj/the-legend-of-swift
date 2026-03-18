@@ -307,6 +307,11 @@ final class ZeldaExtractTests: XCTestCase {
         let text = try decoder.decode([String: String].self, from: textData)
         XCTAssertEqual(text["overworldpersontextselectors"], "@`BBDFHJLNbbb")
         XCTAssertEqual(text["underworldpersontextselectorsa"], "(&-02>>4")
+
+        let linkSpriteData = try Data(contentsOf: outputDir.appendingPathComponent("sprites/link_src.json"))
+        let linkSheet = try decoder.decode(SpriteSheet.self, from: linkSpriteData)
+        XCTAssertEqual(linkSheet.frames.map(\.id), ["horizontal_0", "horizontal_1", "down", "up"])
+        XCTAssertTrue(linkSheet.frames.allSatisfy { $0.pixels?.count == 256 })
     }
 
     func testIncbinResolvesFromSiblingBinDirectory() throws {

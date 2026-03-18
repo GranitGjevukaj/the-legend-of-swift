@@ -9,18 +9,37 @@ struct OverworldParser {
     func parse(from sourceURL: URL?) -> OverworldData {
         let blocks = repository.load(from: sourceURL)
         let exitBytes = collectExitBytes(from: blocks)
+        let startRoomId = parseStartRoomId(from: blocks)
+        let startY = parseStartY(from: blocks)
+        var defaultRoomFlags: [Int: Int] = [:]
+        if let startRoomId {
+            // Seed known always-open cave behavior for start screen.
+            defaultRoomFlags[startRoomId] = 0x80
+        }
 
         if let structured = parseStructuredOverworld(from: blocks, exitBytes: exitBytes) {
-            return structured
+            var resolved = structured
+            resolved.startRoomId = startRoomId
+            resolved.startY = startY
+            applyRoomFlags(&resolved, defaults: defaultRoomFlags)
+            return resolved
         }
 
         let overworldBytes = collectOverworldBytes(from: blocks)
 
         guard !overworldBytes.isEmpty else {
-            return seededFallback(from: sourceURL)
+            var fallback = seededFallback(from: sourceURL)
+            fallback.startRoomId = startRoomId
+            fallback.startY = startY
+            applyRoomFlags(&fallback, defaults: defaultRoomFlags)
+            return fallback
         }
 
-        return parseFromASMData(overworldBytes: overworldBytes, exitBytes: exitBytes)
+        var parsed = parseFromASMData(overworldBytes: overworldBytes, exitBytes: exitBytes)
+        parsed.startRoomId = startRoomId
+        parsed.startY = startY
+        applyRoomFlags(&parsed, defaults: defaultRoomFlags)
+        return parsed
     }
 
     private func parseFromASMData(overworldBytes: [UInt8], exitBytes: [UInt8]) -> OverworldData {
@@ -55,7 +74,8 @@ struct OverworldParser {
                     row: row,
                     metatileGrid: grid,
                     exits: exits(for: screenIndex, exitBytes: exitBytes),
-                    paletteSelectorGrid: nil
+                    paletteSelectorGrid: nil,
+                    roomFlags: nil
                 )
             )
         }
@@ -119,7 +139,8 @@ struct OverworldParser {
                     row: row,
                     metatileGrid: metatileGrid,
                     exits: exits(for: screenIndex, exitBytes: exitBytes),
-                    paletteSelectorGrid: paletteSelectorGrid
+                    paletteSelectorGrid: paletteSelectorGrid,
+                    roomFlags: nil
                 )
             )
         }
@@ -308,6 +329,36 @@ struct OverworldParser {
         ASMLabelSelector.collectBytes(from: blocks, specs: ZeldaDisassemblySymbols.overworldExitData)
     }
 
+    private func parseStartRoomId(from blocks: [ASMByteBlock]) -> Int? {
+        guard
+            let levelInfo = bytes(for: "LevelInfoOW", in: blocks),
+            levelInfo.count > 0x2F
+        else {
+            return nil
+        }
+        return Int(levelInfo[0x2F])
+    }
+
+    private func parseStartY(from blocks: [ASMByteBlock]) -> Int? {
+        guard
+            let levelInfo = bytes(for: "LevelInfoOW", in: blocks),
+            levelInfo.count > 0x28
+        else {
+            return nil
+        }
+        return Int(levelInfo[0x28])
+    }
+
+    private func applyRoomFlags(_ overworld: inout OverworldData, defaults: [Int: Int]) {
+        guard !defaults.isEmpty else { return }
+
+        for index in overworld.screens.indices {
+            let roomId = (overworld.screens[index].row << 4) | overworld.screens[index].column
+            guard let flags = defaults[roomId] else { continue }
+            overworld.screens[index].roomFlags = flags
+        }
+    }
+
     private func seededFallback(from sourceURL: URL?) -> OverworldData {
         let marker: String
         if let sourceURL {
@@ -329,7 +380,8 @@ struct OverworldParser {
                         row: row,
                         metatileGrid: grid,
                         exits: ["north", "south", "west", "east"],
-                        paletteSelectorGrid: nil
+                        paletteSelectorGrid: nil,
+                        roomFlags: nil
                     )
                 )
             }
