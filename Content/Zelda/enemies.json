@@ -1,38 +1,38 @@
 [
   {
-    "damage" : 1,
-    "hitPoints" : 2,
+    "damage" : 4,
+    "hitPoints" : 7,
     "id" : "octorok",
+    "speed" : 2
+  },
+  {
+    "damage" : 3,
+    "hitPoints" : 2,
+    "id" : "tektite",
     "speed" : 1
   },
   {
     "damage" : 1,
     "hitPoints" : 2,
-    "id" : "tektite",
+    "id" : "leever",
     "speed" : 2
   },
   {
     "damage" : 1,
     "hitPoints" : 3,
-    "id" : "leever",
-    "speed" : 1
-  },
-  {
-    "damage" : 2,
-    "hitPoints" : 4,
     "id" : "peahat",
     "speed" : 2
   },
   {
     "damage" : 1,
-    "hitPoints" : 3,
+    "hitPoints" : 8,
     "id" : "stalfos",
     "speed" : 1
   },
   {
     "damage" : 2,
-    "hitPoints" : 4,
+    "hitPoints" : 8,
     "id" : "gibdo",
-    "speed" : 1
+    "speed" : 2
   }
 ]

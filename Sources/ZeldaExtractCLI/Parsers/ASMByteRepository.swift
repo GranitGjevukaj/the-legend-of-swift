@@ -194,9 +194,7 @@ struct ASMByteRepository {
         guard let secondQuote = payload[payload.index(after: firstQuote)...].firstIndex(of: "\"") else { return [] }
 
         let relativePath = String(payload[payload.index(after: firstQuote)..<secondQuote])
-        let binaryURL = fileURL.deletingLastPathComponent().appendingPathComponent(relativePath)
-
-        guard let data = try? Data(contentsOf: binaryURL) else {
+        guard let data = resolveIncbinData(relativePath: relativePath, relativeTo: fileURL) else {
             return []
         }
 
@@ -219,6 +217,50 @@ struct ASMByteRepository {
         let requested = size.map { max(0, min($0, available)) } ?? available
         let slice = data.subdata(in: offset..<(offset + requested))
         return [UInt8](slice)
+    }
+
+    private func resolveIncbinData(relativePath: String, relativeTo fileURL: URL) -> Data? {
+        let baseDirectory = fileURL.deletingLastPathComponent()
+        var candidates: [URL] = [
+            baseDirectory.appendingPathComponent(relativePath)
+        ]
+
+        if let sourceRoot = nearestDirectory(containing: "bins.xml", startingAt: baseDirectory) {
+            candidates.append(sourceRoot.appendingPathComponent(relativePath))
+
+            let projectRoot = sourceRoot.deletingLastPathComponent()
+            candidates.append(projectRoot.appendingPathComponent("bin").appendingPathComponent(relativePath))
+            candidates.append(projectRoot.appendingPathComponent("src").appendingPathComponent(relativePath))
+        }
+
+        var seenPaths = Set<String>()
+        for url in candidates where seenPaths.insert(url.path()).inserted {
+            guard FileManager.default.fileExists(atPath: url.path()) else { continue }
+            if let data = try? Data(contentsOf: url) {
+                return data
+            }
+        }
+
+        return nil
+    }
+
+    private func nearestDirectory(containing fileName: String, startingAt directory: URL) -> URL? {
+        var current = directory
+
+        while true {
+            let candidate = current.appendingPathComponent(fileName)
+            if FileManager.default.fileExists(atPath: candidate.path()) {
+                return current
+            }
+
+            let parent = current.deletingLastPathComponent()
+            if parent.path() == current.path() {
+                break
+            }
+            current = parent
+        }
+
+        return nil
     }
 
     private func parseByteToken(_ token: String) -> UInt8? {

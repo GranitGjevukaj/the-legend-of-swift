@@ -143,7 +143,9 @@ final class ZeldaExtractTests: XCTestCase {
 
         let tileJSONData = try Data(contentsOf: outputDir.appendingPathComponent("tilesets/overworld.json"))
         let tileSet = try decoder.decode(TileSet.self, from: tileJSONData)
-        XCTAssertEqual(tileSet.tiles.first?.pixels.prefix(8), [0, 1, 2, 3, 4, 5, 6, 7])
+        XCTAssertEqual(tileSet.tiles.count, 256)
+        XCTAssertEqual(tileSet.tiles.first?.pixels.count, 64)
+        XCTAssertTrue(tileSet.tiles.first?.pixels.allSatisfy { (0...3).contains(Int($0)) } ?? false)
     }
 
     func testExactLabelPriorityBeatsGenericKeywordMatches() throws {
@@ -305,6 +307,37 @@ final class ZeldaExtractTests: XCTestCase {
         let text = try decoder.decode([String: String].self, from: textData)
         XCTAssertEqual(text["overworldpersontextselectors"], "@`BBDFHJLNbbb")
         XCTAssertEqual(text["underworldpersontextselectorsa"], "(&-02>>4")
+    }
+
+    func testIncbinResolvesFromSiblingBinDirectory() throws {
+        let fileManager = FileManager.default
+        let base = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let sourceDir = base.appendingPathComponent("src", isDirectory: true)
+        let binDir = base.appendingPathComponent("bin/dat", isDirectory: true)
+        let outputDir = base.appendingPathComponent("out", isDirectory: true)
+
+        try fileManager.createDirectory(at: sourceDir, withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: binDir, withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: outputDir, withIntermediateDirectories: true)
+        defer { try? fileManager.removeItem(at: base) }
+
+        // bins.xml marks sourceDir as a disassembly-style source root.
+        try "<Binaries/>".write(to: sourceDir.appendingPathComponent("bins.xml"), atomically: true, encoding: .utf8)
+
+        let incbinData = Data((0..<32).map(UInt8.init))
+        try incbinData.write(to: binDir.appendingPathComponent("PatternBlockOWBG.dat"))
+
+        let asm = """
+        PatternBlockOWBG:
+            .incbin "dat/PatternBlockOWBG.dat"
+        """
+
+        try asm.write(to: sourceDir.appendingPathComponent("tiles.asm"), atomically: true, encoding: .utf8)
+        _ = try ZeldaExtractor(config: ExtractionConfig(sourceURL: sourceDir, outputURL: outputDir)).run()
+
+        let tileBin = try Data(contentsOf: outputDir.appendingPathComponent("tilesets/overworld.bin"))
+        XCTAssertEqual(Array(tileBin.prefix(32)), Array(incbinData))
     }
 
     private func realDisassemblySourceURL() throws -> URL {

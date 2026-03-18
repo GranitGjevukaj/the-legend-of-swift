@@ -52,7 +52,29 @@ public struct ContentLoader: Sendable {
     }
 
     public static func repositoryDefault(cwd: String = FileManager.default.currentDirectoryPath) -> ContentLoader {
-        ContentLoader(baseURL: URL(fileURLWithPath: cwd).appendingPathComponent("Content/Zelda", isDirectory: true))
+        let fileManager = FileManager.default
+        var cursor = URL(fileURLWithPath: cwd, isDirectory: true)
+
+        while true {
+            let packageManifest = cursor.appendingPathComponent("Package.swift")
+            let repoContent = cursor.appendingPathComponent("Content/Zelda", isDirectory: true)
+            if fileManager.fileExists(atPath: packageManifest.path()) &&
+                fileManager.fileExists(atPath: repoContent.path())
+            {
+                return ContentLoader(baseURL: repoContent)
+            }
+
+            let parent = cursor.deletingLastPathComponent()
+            if parent.path() == cursor.path() {
+                break
+            }
+            cursor = parent
+        }
+
+        return ContentLoader(
+            baseURL: URL(fileURLWithPath: cwd)
+                .appendingPathComponent("Content/Zelda", isDirectory: true)
+        )
     }
 
     public func loadAll() throws -> LoadedContent {

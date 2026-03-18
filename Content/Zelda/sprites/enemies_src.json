@@ -1,0 +1,65 @@
+{
+  "frames" : [
+    {
+      "height" : 16,
+      "id" : "octorok_0",
+      "width" : 16
+    },
+    {
+      "height" : 16,
+      "id" : "octorok_1",
+      "width" : 16
+    },
+    {
+      "height" : 16,
+      "id" : "octorok_2",
+      "width" : 16
+    },
+    {
+      "height" : 16,
+      "id" : "tektite_0",
+      "width" : 16
+    },
+    {
+      "height" : 16,
+      "id" : "tektite_1",
+      "width" : 16
+    },
+    {
+      "height" : 16,
+      "id" : "tektite_2",
+      "width" : 16
+    },
+    {
+      "height" : 16,
+      "id" : "stalfos_0",
+      "width" : 16
+    },
+    {
+      "height" : 16,
+      "id" : "stalfos_1",
+      "width" : 16
+    },
+    {
+      "height" : 16,
+      "id" : "stalfos_2",
+      "width" : 16
+    },
+    {
+      "height" : 16,
+      "id" : "gibdo_0",
+      "width" : 16
+    },
+    {
+      "height" : 16,
+      "id" : "gibdo_1",
+      "width" : 16
+    },
+    {
+      "height" : 16,
+      "id" : "gibdo_2",
+      "width" : 16
+    }
+  ],
+  "id" : "enemies_src"
+}

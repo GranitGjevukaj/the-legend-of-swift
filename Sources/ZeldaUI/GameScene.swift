@@ -14,8 +14,15 @@ public final class GameSession: ObservableObject {
         bootState.startNewGame(slot: 0)
         state = bootState
 
-        let paletteBundle = try? ContentLoader.repositoryDefault().decode("palettes.json") as PaletteBundle
-        scene = GameScene(initialState: bootState, paletteBundle: paletteBundle)
+        let loader = ContentLoader.repositoryDefault()
+        let loadedContent = try? loader.loadAll()
+        let tileSet = try? loader.decode("tilesets/overworld.json") as TileSet
+        scene = GameScene(
+            initialState: bootState,
+            paletteBundle: loadedContent?.palettes,
+            overworldData: loadedContent?.overworld,
+            overworldTileSet: tileSet
+        )
         scene.onStateChange = { [weak self] newState in
             self?.state = newState
         }
@@ -42,14 +49,26 @@ public final class GameScene: SKScene {
 
     private let linkNode = SKSpriteNode()
     private let enemyLayer = SKNode()
+    private let backgroundNode = SKSpriteNode()
     private let linkPaletteBundle: PaletteBundle?
+    private let overworldData: OverworldData?
+    private let overworldTileSet: TileSet?
     private var linkTextures: [Direction: [SKTexture]] = [:]
+    private var backgroundTextureCache: [ScreenCoordinate: SKTexture] = [:]
     private var lastLinkPosition: Position
+    private var lastRenderedScreen: ScreenCoordinate?
     private var linkWalkFrameIndex = 0
 
-    public init(initialState: GameState, paletteBundle: PaletteBundle? = nil) {
+    public init(
+        initialState: GameState,
+        paletteBundle: PaletteBundle? = nil,
+        overworldData: OverworldData? = nil,
+        overworldTileSet: TileSet? = nil
+    ) {
         gameState = initialState
         linkPaletteBundle = paletteBundle
+        self.overworldData = overworldData
+        self.overworldTileSet = overworldTileSet
         lastLinkPosition = initialState.link.position
         super.init(size: CGSize(width: Room.pixelWidth, height: Room.pixelHeight))
         scaleMode = .aspectFit
@@ -71,6 +90,7 @@ public final class GameScene: SKScene {
         gameState = newState
         pendingInput = .idle
         lastLinkPosition = newState.link.position
+        lastRenderedScreen = nil
         linkWalkFrameIndex = 0
         syncNodes(with: gameState)
         onStateChange?(newState)
@@ -92,10 +112,17 @@ public final class GameScene: SKScene {
     }
 
     private func configureSceneNodes() {
+        backgroundNode.anchorPoint = CGPoint(x: 0, y: 0)
+        backgroundNode.position = CGPoint(x: 0, y: 0)
+        backgroundNode.size = CGSize(width: Room.pixelWidth, height: Room.pixelHeight)
+        backgroundNode.zPosition = -20
+        addChild(backgroundNode)
+
         let roomFrame = SKShapeNode(rectOf: CGSize(width: Room.pixelWidth - 2, height: Room.pixelHeight - 2), cornerRadius: 0)
         roomFrame.strokeColor = .gray
         roomFrame.lineWidth = 1
         roomFrame.position = CGPoint(x: CGFloat(Room.pixelWidth) / 2, y: CGFloat(Room.pixelHeight) / 2)
+        roomFrame.zPosition = -10
         addChild(roomFrame)
 
         linkTextures = LinkSpriteAtlas.makeDirectionalTextures(from: linkPaletteBundle)
@@ -108,6 +135,11 @@ public final class GameScene: SKScene {
     }
 
     private func syncNodes(with state: GameState) {
+        if lastRenderedScreen != state.currentScreen {
+            renderBackground(screen: state.currentScreen)
+            lastRenderedScreen = state.currentScreen
+        }
+
         let moved = state.link.position != lastLinkPosition
         if moved {
             linkWalkFrameIndex = (linkWalkFrameIndex + 1) % 2
@@ -127,6 +159,29 @@ public final class GameScene: SKScene {
             enemyNode.position = CGPoint(x: enemy.position.x, y: enemy.position.y)
             enemyLayer.addChild(enemyNode)
         }
+    }
+
+    private func renderBackground(screen coordinate: ScreenCoordinate) {
+        if let cached = backgroundTextureCache[coordinate] {
+            backgroundNode.texture = cached
+            return
+        }
+
+        guard
+            let overworldData,
+            let screen = overworldData.screens.first(where: { $0.column == coordinate.column && $0.row == coordinate.row })
+        else {
+            backgroundNode.texture = nil
+            return
+        }
+
+        let texture = OverworldScreenTextureBuilder.buildTexture(
+            screen: screen,
+            tileSet: overworldTileSet,
+            palettes: linkPaletteBundle
+        )
+        backgroundTextureCache[coordinate] = texture
+        backgroundNode.texture = texture
     }
 
     private func currentLinkTexture(for direction: Direction, walkFrame: Int) -> SKTexture? {

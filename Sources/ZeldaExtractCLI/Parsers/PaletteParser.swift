@@ -10,6 +10,7 @@ struct PaletteParser {
         let paletteBlocks = blocks.filter { searchableKey(for: $0).contains("pal") || searchableKey(for: $0).contains("palette") }
         let combinedSource = paletteBytes.isEmpty ? paletteBlocks.flatMap(\.bytes) : paletteBytes
         let combined = combinedSource.map { Int($0 & 0x3F) }
+        let overworldPaletteRows = overworldPaletteRows(from: blocks)
 
         let areaPalettes = [
             "overworld": palette(preferred: ["overworld", "ow"], fallbackChunk: 0, blocks: paletteBlocks, combined: combined, defaultValue: [15, 17, 33, 45]),
@@ -22,7 +23,52 @@ struct PaletteParser {
             "enemies": palette(preferred: ["enemy", "monster"], fallbackChunk: 4, blocks: paletteBlocks, combined: combined, defaultValue: [15, 10, 25, 40])
         ]
 
-        return PaletteBundle(nesColors: Self.defaultNESRGBPalette, areaPalettes: areaPalettes, spritePalettes: spritePalettes)
+        let areaPaletteSets: [String: [[Int]]]? = if let overworldPaletteRows {
+            ["overworld": overworldPaletteRows]
+        } else {
+            nil
+        }
+
+        return PaletteBundle(
+            nesColors: Self.defaultNESRGBPalette,
+            areaPalettes: areaPalettes,
+            areaPaletteSets: areaPaletteSets,
+            spritePalettes: spritePalettes
+        )
+    }
+
+    private func overworldPaletteRows(from blocks: [ASMByteBlock]) -> [[Int]]? {
+        guard
+            let levelInfoOW = blocks.first(where: { normalize($0.label) == "levelinfoow" })?.bytes,
+            levelInfoOW.count >= 3
+        else {
+            return nil
+        }
+
+        for index in 0..<(levelInfoOW.count - 2) {
+            guard levelInfoOW[index] == 0x3F, levelInfoOW[index + 1] == 0x00 else {
+                continue
+            }
+
+            let payloadCount = Int(levelInfoOW[index + 2])
+            let payloadStart = index + 3
+            let payloadEnd = payloadStart + payloadCount
+            guard payloadCount >= 16, payloadEnd <= levelInfoOW.count else {
+                continue
+            }
+
+            let payload = levelInfoOW[payloadStart..<payloadEnd].map { Int($0 & 0x3F) }
+            var rows: [[Int]] = []
+            rows.reserveCapacity(4)
+
+            for rowStart in stride(from: 0, to: 16, by: 4) {
+                rows.append(Array(payload[rowStart..<(rowStart + 4)]))
+            }
+
+            return rows
+        }
+
+        return nil
     }
 
     private func palette(
@@ -54,6 +100,10 @@ struct PaletteParser {
 
     private func searchableKey(for block: ASMByteBlock) -> String {
         "\(block.label.lowercased()) \(block.fileURL.lastPathComponent.lowercased())"
+    }
+
+    private func normalize(_ value: String) -> String {
+        value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 }
 

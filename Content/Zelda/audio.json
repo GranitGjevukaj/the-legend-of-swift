@@ -1,6 +1,11 @@
 {
-  "boss_theme" : "tempo:150;instrument:noise",
-  "dungeon_theme" : "tempo:118;instrument:triangle",
-  "overworld_theme" : "tempo:132;instrument:pulse",
-  "sfx_sword" : "channel:pulse;length:short"
+  "songheaderganon0" : "tempo:96;instrument:pulse;length:long",
+  "songheaderoverworld0" : "tempo:96;instrument:pulse;length:medium",
+  "songheaderunderworld0" : "tempo:80;instrument:triangle;length:short",
+  "songscriptending0" : "tempo:88;instrument:pulse;length:long",
+  "songscriptganon0" : "tempo:104;instrument:dpcm;length:long",
+  "songscriptitemtaken0" : "tempo:102;instrument:dpcm;length:medium",
+  "songscriptoverworld0" : "tempo:98;instrument:dpcm;length:short",
+  "songscriptunderworld0" : "tempo:130;instrument:pulse;length:long",
+  "songtable" : "tempo:85;instrument:triangle;length:long"
 }

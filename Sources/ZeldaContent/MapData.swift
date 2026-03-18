@@ -18,13 +18,22 @@ public struct OverworldScreen: Codable, Equatable, Sendable {
     public var row: Int
     public var metatileGrid: [Int]
     public var exits: [String]
+    public var paletteSelectorGrid: [Int]?
 
-    public init(id: String, column: Int, row: Int, metatileGrid: [Int], exits: [String]) {
+    public init(
+        id: String,
+        column: Int,
+        row: Int,
+        metatileGrid: [Int],
+        exits: [String],
+        paletteSelectorGrid: [Int]? = nil
+    ) {
         self.id = id
         self.column = column
         self.row = row
         self.metatileGrid = metatileGrid
         self.exits = exits
+        self.paletteSelectorGrid = paletteSelectorGrid
     }
 }
 
