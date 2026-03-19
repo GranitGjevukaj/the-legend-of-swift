@@ -3,211 +3,107 @@
   "rooms" : [
     {
       "doors" : [
-        "north:open",
-        "south:open",
-        "west:open",
-        "east:open"
+        "north",
+        "south",
+        "west",
+        "east"
       ],
       "enemies" : [
-        "tektite",
-        "wizzrobe"
-      ],
-      "id" : "D4_R0"
-    },
-    {
-      "doors" : [
-        "north:open",
-        "south:locked",
-        "west:locked",
-        "east:locked"
-      ],
-      "enemies" : [
-        "gibdo",
+        "stalfos",
         "gibdo"
       ],
-      "id" : "D4_R1"
+      "id" : "D4_R0_default"
     },
     {
       "doors" : [
-        "north:open",
-        "south:open",
-        "west:open",
-        "east:open"
+        "north",
+        "south",
+        "west",
+        "east"
       ],
       "enemies" : [
-        "darknut",
+        "stalfos",
         "gibdo"
       ],
-      "id" : "D4_R2"
+      "id" : "D4_R1_default"
     },
     {
       "doors" : [
-        "north:shutter",
-        "south:open",
-        "west:locked",
-        "east:open"
+        "north",
+        "south",
+        "west",
+        "east"
       ],
       "enemies" : [
-        "tektite",
+        "stalfos",
         "gibdo"
       ],
-      "id" : "D4_R3"
+      "id" : "D4_R2_default"
     },
     {
       "doors" : [
-        "north:open",
-        "south:open",
-        "west:open",
-        "east:open"
-      ],
-      "enemies" : [
-        "darknut",
-        "stalfos"
-      ],
-      "id" : "D4_R4"
-    },
-    {
-      "doors" : [
-        "north:locked",
-        "south:open",
-        "west:locked",
-        "east:open"
+        "north",
+        "south",
+        "west",
+        "east"
       ],
       "enemies" : [
         "stalfos",
-        "darknut"
+        "gibdo"
       ],
-      "id" : "D4_R5"
+      "id" : "D4_R3_default"
     },
     {
       "doors" : [
-        "north:locked",
-        "south:open",
-        "west:locked",
-        "east:open"
+        "north",
+        "south",
+        "west",
+        "east"
       ],
       "enemies" : [
         "stalfos",
-        "darknut"
+        "gibdo"
       ],
-      "id" : "D4_R6"
+      "id" : "D4_R4_default"
     },
     {
       "doors" : [
-        "north:open",
-        "south:open",
-        "west:open",
-        "east:open"
-      ],
-      "enemies" : [
-        "darknut",
-        "stalfos"
-      ],
-      "id" : "D4_R7"
-    },
-    {
-      "doors" : [
-        "north:open",
-        "south:open",
-        "west:open",
-        "east:open"
+        "north",
+        "south",
+        "west",
+        "east"
       ],
       "enemies" : [
         "stalfos",
-        "stalfos"
+        "gibdo"
       ],
-      "id" : "D4_R8"
+      "id" : "D4_R5_default"
     },
     {
       "doors" : [
-        "north:open",
-        "south:open",
-        "west:open",
-        "east:open"
+        "north",
+        "south",
+        "west",
+        "east"
       ],
       "enemies" : [
         "stalfos",
-        "stalfos"
+        "gibdo"
       ],
-      "id" : "D4_R9"
+      "id" : "D4_R6_default"
     },
     {
       "doors" : [
-        "north:open",
-        "south:open",
-        "west:open",
-        "east:open"
+        "north",
+        "south",
+        "west",
+        "east"
       ],
       "enemies" : [
         "stalfos",
-        "stalfos"
+        "gibdo"
       ],
-      "id" : "D4_R10"
-    },
-    {
-      "doors" : [
-        "north:open",
-        "south:open",
-        "west:open",
-        "east:open"
-      ],
-      "enemies" : [
-        "stalfos",
-        "stalfos"
-      ],
-      "id" : "D4_R11"
-    },
-    {
-      "doors" : [
-        "north:shutter",
-        "south:open",
-        "west:bombable",
-        "east:open"
-      ],
-      "enemies" : [
-        "darknut",
-        "darknut"
-      ],
-      "id" : "D4_R12"
-    },
-    {
-      "doors" : [
-        "north:shutter",
-        "south:open",
-        "west:bombable",
-        "east:open"
-      ],
-      "enemies" : [
-        "darknut",
-        "darknut"
-      ],
-      "id" : "D4_R13"
-    },
-    {
-      "doors" : [
-        "north:shutter",
-        "south:open",
-        "west:bombable",
-        "east:open"
-      ],
-      "enemies" : [
-        "darknut",
-        "darknut"
-      ],
-      "id" : "D4_R14"
-    },
-    {
-      "doors" : [
-        "north:shutter",
-        "south:open",
-        "west:bombable",
-        "east:open"
-      ],
-      "enemies" : [
-        "darknut",
-        "darknut"
-      ],
-      "id" : "D4_R15"
+      "id" : "D4_R7_default"
     }
   ]
 }

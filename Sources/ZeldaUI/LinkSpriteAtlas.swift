@@ -64,12 +64,12 @@ enum LinkSpriteAtlas {
                 texture(from: left1, extractedPalette: palette)
             ],
             .down: [
-                texture(from: up, extractedPalette: palette),
-                texture(from: upStep1, extractedPalette: palette)
-            ],
-            .up: [
                 texture(from: down, extractedPalette: palette),
                 texture(from: downStep1, extractedPalette: palette)
+            ],
+            .up: [
+                texture(from: up, extractedPalette: palette),
+                texture(from: upStep1, extractedPalette: palette)
             ]
         ]
     }
@@ -156,9 +156,9 @@ enum LinkSpriteAtlas {
     private static func fallbackFrame(direction: Direction, step: Int) -> [UInt8] {
         switch direction {
         case .down:
-            return upFrame(step: step)
-        case .up:
             return downFrame(step: step)
+        case .up:
+            return upFrame(step: step)
         case .left:
             return leftFrame(step: step)
         case .right:

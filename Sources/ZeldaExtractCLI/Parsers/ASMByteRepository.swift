@@ -221,9 +221,13 @@ struct ASMByteRepository {
 
     private func resolveIncbinData(relativePath: String, relativeTo fileURL: URL) -> Data? {
         let baseDirectory = fileURL.deletingLastPathComponent()
-        var candidates: [URL] = [
-            baseDirectory.appendingPathComponent(relativePath)
-        ]
+        let localCandidate = baseDirectory.appendingPathComponent(relativePath)
+        if FileManager.default.fileExists(atPath: localCandidate.path()),
+           let data = try? Data(contentsOf: localCandidate) {
+            return data
+        }
+
+        var candidates: [URL] = [localCandidate]
 
         if let sourceRoot = nearestDirectory(containing: "bins.xml", startingAt: baseDirectory) {
             candidates.append(sourceRoot.appendingPathComponent(relativePath))
@@ -245,19 +249,21 @@ struct ASMByteRepository {
     }
 
     private func nearestDirectory(containing fileName: String, startingAt directory: URL) -> URL? {
-        var current = directory
+        let fileManager = FileManager.default
+        var currentPath = directory.standardizedFileURL.path
+        var seenPaths = Set<String>()
 
-        while true {
-            let candidate = current.appendingPathComponent(fileName)
-            if FileManager.default.fileExists(atPath: candidate.path()) {
-                return current
+        while seenPaths.insert(currentPath).inserted {
+            let candidatePath = (currentPath as NSString).appendingPathComponent(fileName)
+            if fileManager.fileExists(atPath: candidatePath) {
+                return URL(fileURLWithPath: currentPath, isDirectory: true)
             }
 
-            let parent = current.deletingLastPathComponent()
-            if parent.path() == current.path() {
+            let parentPath = (currentPath as NSString).deletingLastPathComponent
+            if parentPath.isEmpty || parentPath == currentPath {
                 break
             }
-            current = parent
+            currentPath = parentPath
         }
 
         return nil

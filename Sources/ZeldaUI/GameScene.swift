@@ -11,10 +11,14 @@ public final class GameSession: ObservableObject {
     private let defaultStartScreen: ScreenCoordinate
     private let defaultStartLink: ZeldaCore.Link
     private let runtimeOverworld: Overworld
+    private let loadedOverworld: OverworldData?
+    private let textEntries: [String: String]
 
     public init() {
         let loader = ContentLoader.repositoryDefault()
         let loadedContent = try? loader.loadAll()
+        loadedOverworld = loadedContent?.overworld
+        textEntries = loadedContent?.text ?? [:]
         defaultStartScreen = Self.screenCoordinate(from: loadedContent?.overworld.startRoomId) ?? ScreenCoordinate(column: 7, row: 3)
         defaultStartLink = Self.linkSpawn(from: loadedContent?.overworld) ?? .spawnPoint
         runtimeOverworld = OverworldContentBuilder.build(from: loadedContent?.overworld)
@@ -34,6 +38,14 @@ public final class GameSession: ObservableObject {
         scene.onStateChange = { [weak self] newState in
             self?.state = newState
         }
+    }
+
+    public var caveMessage: String? {
+        CaveDialogueResolver.message(
+            for: state,
+            overworldData: loadedOverworld,
+            textEntries: textEntries
+        )
     }
 
     public func start(slot: Int) {
@@ -61,7 +73,7 @@ public final class GameSession: ObservableObject {
 
         return ZeldaCore.Link(
             position: Position(x: 0x78, y: startY),
-            facing: .up,
+            facing: .down,
             hearts: 3,
             maxHearts: 3,
             speed: 2
@@ -70,6 +82,11 @@ public final class GameSession: ObservableObject {
 }
 
 public final class GameScene: SKScene {
+    private enum BackdropKey: Equatable {
+        case overworld(ScreenCoordinate)
+        case cave(ScreenCoordinate)
+    }
+
     public var onStateChange: ((GameState) -> Void)?
 
     private var gameState: GameState
@@ -78,6 +95,7 @@ public final class GameScene: SKScene {
 
     private let linkNode = SKSpriteNode()
     private let enemyLayer = SKNode()
+    private let caveContentLayer = SKNode()
     private let backgroundNode = SKSpriteNode()
     private let linkPaletteBundle: PaletteBundle?
     private let overworldData: OverworldData?
@@ -85,8 +103,10 @@ public final class GameScene: SKScene {
     private let linkSpriteSheet: SpriteSheet?
     private var linkTextures: [Direction: [SKTexture]] = [:]
     private var backgroundTextureCache: [ScreenCoordinate: SKTexture] = [:]
+    private var caveTextureCache: [String: SKTexture] = [:]
     private var lastLinkPosition: Position
-    private var lastRenderedScreen: ScreenCoordinate?
+    private var lastRenderedBackdrop: BackdropKey?
+    private var lastRenderedRoomFlags: Int?
     private var linkWalkFrameIndex = 0
 
     public init(
@@ -122,7 +142,8 @@ public final class GameScene: SKScene {
         gameState = newState
         pendingInput = .idle
         lastLinkPosition = newState.link.position
-        lastRenderedScreen = nil
+        lastRenderedBackdrop = nil
+        lastRenderedRoomFlags = nil
         linkWalkFrameIndex = 0
         syncNodes(with: gameState)
         onStateChange?(newState)
@@ -150,26 +171,33 @@ public final class GameScene: SKScene {
         backgroundNode.zPosition = -20
         addChild(backgroundNode)
 
-        let roomFrame = SKShapeNode(rectOf: CGSize(width: Room.pixelWidth - 2, height: Room.pixelHeight - 2), cornerRadius: 0)
-        roomFrame.strokeColor = .gray
-        roomFrame.lineWidth = 1
-        roomFrame.position = CGPoint(x: CGFloat(Room.pixelWidth) / 2, y: CGFloat(Room.pixelHeight) / 2)
-        roomFrame.zPosition = -10
-        addChild(roomFrame)
-
         linkTextures = LinkSpriteAtlas.makeDirectionalTextures(from: linkPaletteBundle, spriteSheet: linkSpriteSheet)
         linkNode.size = CGSize(width: 16, height: 16)
         linkNode.zPosition = 10
         linkNode.texture = currentLinkTexture(for: gameState.link.facing, walkFrame: 0)
         addChild(linkNode)
 
+        caveContentLayer.zPosition = 4
+        addChild(caveContentLayer)
         addChild(enemyLayer)
     }
 
     private func syncNodes(with state: GameState) {
-        if lastRenderedScreen != state.currentScreen {
-            renderBackground(screen: state.currentScreen)
-            lastRenderedScreen = state.currentScreen
+        let backdrop = state.cave == nil ? BackdropKey.overworld(state.currentScreen) : BackdropKey.cave(state.currentScreen)
+        if lastRenderedBackdrop != backdrop {
+            renderBackground(for: state)
+            lastRenderedBackdrop = backdrop
+        }
+
+        let roomFlags = state.currentRoomFlags
+        if state.cave != nil {
+            if lastRenderedBackdrop != backdrop || lastRenderedRoomFlags != roomFlags {
+                renderCaveContents(for: state)
+                lastRenderedRoomFlags = roomFlags
+            }
+        } else if lastRenderedRoomFlags != nil || caveContentLayer.children.isEmpty == false {
+            renderCaveContents(for: state)
+            lastRenderedRoomFlags = nil
         }
 
         let moved = state.link.position != lastLinkPosition
@@ -181,19 +209,35 @@ public final class GameScene: SKScene {
         lastLinkPosition = state.link.position
 
         linkNode.texture = currentLinkTexture(for: state.link.facing, walkFrame: linkWalkFrameIndex)
-        linkNode.position = CGPoint(x: state.link.position.x, y: state.link.position.y)
+        linkNode.position = scenePoint(for: state.link.position)
 
         enemyLayer.removeAllChildren()
         for enemy in state.enemies {
             let enemyNode = SKShapeNode(rectOf: CGSize(width: 12, height: 12), cornerRadius: 2)
             enemyNode.fillColor = .red
             enemyNode.strokeColor = .red
-            enemyNode.position = CGPoint(x: enemy.position.x, y: enemy.position.y)
+            enemyNode.position = scenePoint(for: enemy.position)
             enemyLayer.addChild(enemyNode)
         }
     }
 
-    private func renderBackground(screen coordinate: ScreenCoordinate) {
+    private func renderBackground(for state: GameState) {
+        if state.cave != nil {
+            let caveLayout = resolvedCaveLayout()
+            let cacheKey = caveLayout?.id ?? "fallback"
+
+            if let cached = caveTextureCache[cacheKey] {
+                backgroundNode.texture = cached
+                return
+            }
+
+            let texture = CaveScreenTextureBuilder.buildTexture(layout: caveLayout, tileSet: overworldTileSet)
+            caveTextureCache[cacheKey] = texture
+            backgroundNode.texture = texture
+            return
+        }
+
+        let coordinate = state.currentScreen
         if let cached = backgroundTextureCache[coordinate] {
             backgroundNode.texture = cached
             return
@@ -216,6 +260,30 @@ public final class GameScene: SKScene {
         backgroundNode.texture = texture
     }
 
+    private func resolvedCaveLayout() -> CaveLayout? {
+        let layouts = overworldData?.caveLayouts ?? []
+        return layouts.first(where: { $0.id == "cave_0" }) ?? layouts.first
+    }
+
+    private func renderCaveContents(for state: GameState) {
+        caveContentLayer.removeAllChildren()
+        guard state.cave != nil else {
+            return
+        }
+
+        let screen = overworldData?.screens.first(where: {
+            $0.column == state.currentScreen.column && $0.row == state.currentScreen.row
+        })
+        guard let caveIndex = screen?.caveIndex else {
+            return
+        }
+
+        let definition = overworldData?.caveDefinitions?.first(where: { $0.index == caveIndex })
+        for node in CaveContentNodeBuilder.buildNodes(definition: definition, roomFlags: state.currentRoomFlags) {
+            caveContentLayer.addChild(node)
+        }
+    }
+
     private func currentLinkTexture(for direction: Direction, walkFrame: Int) -> SKTexture? {
         let directional = linkTextures[direction] ?? linkTextures[.down] ?? []
         guard !directional.isEmpty else { return nil }
@@ -230,5 +298,9 @@ public final class GameScene: SKScene {
             buttonB: current.buttonB || incoming.buttonB,
             start: current.start || incoming.start
         )
+    }
+
+    private func scenePoint(for position: Position) -> CGPoint {
+        CGPoint(x: position.x, y: Room.pixelHeight - position.y)
     }
 }

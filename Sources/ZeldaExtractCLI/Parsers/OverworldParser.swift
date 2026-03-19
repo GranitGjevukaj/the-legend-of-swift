@@ -80,14 +80,14 @@ struct OverworldParser {
             )
         }
 
-        return OverworldData(width: 16, height: 8, screens: screens)
+        return OverworldData(width: 16, height: 8, screens: screens, caveLayouts: nil, caveDefinitions: nil)
     }
 
     private func parseStructuredOverworld(from blocks: [ASMByteBlock], exitBytes: [UInt8]) -> OverworldData? {
         guard
             let roomLayouts = bytes(for: "RoomLayoutsOW", in: blocks),
             let levelBlockOW = bytes(for: "LevelBlockOW", in: blocks),
-            levelBlockOW.count >= 512
+            levelBlockOW.count >= 768
         else {
             return nil
         }
@@ -104,8 +104,12 @@ struct OverworldParser {
         let descriptorsPerRoom = 16
         let rows = 11
         let columns = 16
-        let uniqueRoomMask = 0x3F
-        let levelBlockAttrsDOffset = 128 * 3
+        let attrsACount = 128
+        let attrsBOffset = attrsACount
+        let attrsFOffset = attrsACount * 5
+        let attrsEOffset = attrsACount * 4
+        let cavePriceOffset = attrsEOffset + 60
+        let levelBlockAttrsDOffset = attrsACount * 3
 
         guard roomLayouts.count >= descriptorsPerRoom else {
             return nil
@@ -113,16 +117,21 @@ struct OverworldParser {
 
         var screens: [OverworldScreen] = []
         screens.reserveCapacity(screenCount)
+        var caveLayouts: [CaveLayout] = []
 
         for screenIndex in 0..<screenCount {
             let row = screenIndex / 16
             let column = screenIndex % 16
             let screenID = String(format: "OW_%02d_%02d", row, column)
 
-            let roomAttr = levelBlockOW[levelBlockAttrsDOffset + (screenIndex % 128)]
-            let uniqueRoomID = Int(roomAttr & UInt8(uniqueRoomMask))
-            let roomOffset = uniqueRoomID * descriptorsPerRoom
+            let roomOffsetInBlock = screenIndex % attrsACount
+            let attrsA = Int(levelBlockOW[roomOffsetInBlock])
+            let attrsF = Int(levelBlockOW[attrsFOffset + roomOffsetInBlock])
+            let roomAttr = levelBlockOW[levelBlockAttrsDOffset + roomOffsetInBlock]
+            let roomLayoutID = Int(roomAttr)
+            let roomOffset = roomLayoutID * descriptorsPerRoom
             let paletteSelectorGrid = paletteSelectorGrid(screenIndex: screenIndex, levelBlockOW: levelBlockOW, rows: rows, columns: columns)
+            let caveIndex = caveIndex(from: Int(levelBlockOW[attrsBOffset + roomOffsetInBlock]))
 
             let metatileGrid: [Int]
             if roomOffset + descriptorsPerRoom <= roomLayouts.count {
@@ -140,12 +149,75 @@ struct OverworldParser {
                     metatileGrid: metatileGrid,
                     exits: exits(for: screenIndex, exitBytes: exitBytes),
                     paletteSelectorGrid: paletteSelectorGrid,
-                    roomFlags: nil
+                    roomFlags: nil,
+                    caveIndex: caveIndex,
+                    undergroundExitX: attrsA & 0xF0,
+                    undergroundExitY: ((attrsF & 0x07) << 4) + 0x4D
                 )
             )
         }
 
-        return OverworldData(width: 16, height: 8, screens: screens)
+        for caveIndex in 0...2 {
+            let label = "RoomLayoutOWCave\(caveIndex)"
+            guard
+                let roomColumns = bytes(for: label, in: blocks),
+                roomColumns.count >= descriptorsPerRoom
+            else {
+                continue
+            }
+
+            let layoutColumns = Array(roomColumns.prefix(descriptorsPerRoom))
+            caveLayouts.append(
+                CaveLayout(
+                    id: "cave_\(caveIndex)",
+                    metatileGrid: decodeRoomColumns(layoutColumns, heaps: heaps, rows: rows, columns: columns),
+                    paletteSelectorGrid: nil
+                )
+            )
+        }
+
+        let caveDefinitions: [CaveDefinition]?
+        if
+            let textSelectors = bytes(for: "OverworldPersonTextSelectors", in: blocks),
+            textSelectors.count >= 20,
+            levelBlockOW.count >= cavePriceOffset + 60
+        {
+            caveDefinitions = (0..<20).map { caveIndex in
+                let selectorByte = Int(textSelectors[caveIndex])
+                let itemBase = attrsEOffset + (caveIndex * 3)
+                let priceBase = cavePriceOffset + (caveIndex * 3)
+                let itemBytes = Array(levelBlockOW[itemBase..<(itemBase + 3)])
+                let priceBytes = Array(levelBlockOW[priceBase..<(priceBase + 3)])
+
+                let items = itemBytes.enumerated().map { slot, rawItem in
+                    let itemId = Int(rawItem & 0x3F)
+                    return CaveItem(
+                        slot: slot,
+                        itemId: itemId == 0x3F ? nil : itemId,
+                        price: Int(priceBytes[slot]),
+                        flags: Int((rawItem & 0xC0) >> 6)
+                    )
+                }
+
+                return CaveDefinition(
+                    index: caveIndex,
+                    personType: 0x6A + caveIndex,
+                    textSelector: selectorByte & 0x3F,
+                    caveFlags: caveFlags(textSelectorByte: selectorByte, itemBytes: itemBytes),
+                    items: items
+                )
+            }
+        } else {
+            caveDefinitions = nil
+        }
+
+        return OverworldData(
+            width: 16,
+            height: 8,
+            screens: screens,
+            caveLayouts: caveLayouts.isEmpty ? nil : caveLayouts,
+            caveDefinitions: caveDefinitions
+        )
     }
 
     private func paletteSelectorGrid(screenIndex: Int, levelBlockOW: [UInt8], rows: Int, columns: Int) -> [Int]? {
@@ -387,7 +459,24 @@ struct OverworldParser {
             }
         }
 
-        return OverworldData(width: 16, height: 8, screens: screens)
+        return OverworldData(width: 16, height: 8, screens: screens, caveLayouts: nil, caveDefinitions: nil)
+    }
+
+    private func caveIndex(from attrB: Int) -> Int? {
+        let caveValue = attrB & 0xFC
+        guard caveValue >= 0x40 else {
+            return nil
+        }
+
+        return (caveValue - 0x40) >> 2
+    }
+
+    private func caveFlags(textSelectorByte: Int, itemBytes: [UInt8]) -> Int {
+        let textFlags = (textSelectorByte & 0xC0) >> 6
+        let item0 = itemBytes.count > 0 ? Int(itemBytes[0] & 0xC0) : 0
+        let item1 = itemBytes.count > 1 ? Int((itemBytes[1] & 0xC0) >> 2) : 0
+        let item2 = itemBytes.count > 2 ? Int((itemBytes[2] & 0xC0) >> 4) : 0
+        return item0 | item1 | item2 | textFlags
     }
 }
 

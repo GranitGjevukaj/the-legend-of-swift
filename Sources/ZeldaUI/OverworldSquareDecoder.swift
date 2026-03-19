@@ -49,6 +49,16 @@ enum OverworldSquareDecoder {
         }
     }
 
+    static func isCaveEntrance(descriptor: Int, roomFlags: Int = 0) -> Bool {
+        let resolved = resolvedSquare(for: descriptor, roomFlags: roomFlags)
+
+        if case let .secondary(squareIndex) = resolved {
+            return squareIndex == 0x0C
+        }
+
+        return false
+    }
+
     private static func resolvedSquare(for descriptor: Int, roomFlags: Int) -> ResolvedSquare {
         let originalSquareIndex = descriptor & 0x3F
         guard originalSquareIndex < primarySquaresOW.count else {

@@ -27,16 +27,25 @@ public struct ZeldaRootView: View {
                 stage = .game
             }
         case .game:
-            ZStack(alignment: .top) {
-                GameSpriteContainer(
-                    scene: session.scene,
-                    onInput: { input in
-                        session.send(input)
-                    }
-                )
-                .ignoresSafeArea()
+            ZStack {
+                VStack(spacing: 0) {
+                    HUDView(state: session.state)
 
-                HUDView(state: session.state)
+                    ZStack(alignment: .bottom) {
+                        GameSpriteContainer(
+                            scene: session.scene,
+                            onInput: { input in
+                                session.send(input)
+                            }
+                        )
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                        if let caveMessage = session.caveMessage {
+                            CaveDialogueBanner(text: caveMessage)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 if session.state.phase == .paused {
                     PauseMenuView {
@@ -55,13 +64,34 @@ public struct ZeldaRootView: View {
     }
 }
 
+private struct CaveDialogueBanner: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 12, weight: .bold, design: .monospaced))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity)
+            .background(Color.black.opacity(0.78))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(Color.white.opacity(0.15), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .padding(.horizontal, 16)
+            .padding(.bottom, 16)
+    }
+}
+
 private struct GameKeyboardShortcuts: View {
     let onInput: (InputState) -> Void
 
     var body: some View {
         VStack(spacing: 0) {
-            shortcutButton(.down, shortcut: .upArrow)
-            shortcutButton(.up, shortcut: .downArrow)
+            shortcutButton(.up, shortcut: .upArrow)
+            shortcutButton(.down, shortcut: .downArrow)
             shortcutButton(.left, shortcut: .leftArrow)
             shortcutButton(.right, shortcut: .rightArrow)
             Button("") { onInput(InputState(start: true)) }
@@ -195,10 +225,10 @@ private final class InputHostingSKView: SKView {
             setHeldDirection(.right)
             return true
         case 125:
-            setHeldDirection(.up)
+            setHeldDirection(.down)
             return true
         case 126:
-            setHeldDirection(.down)
+            setHeldDirection(.up)
             return true
         case 36, 49, 53:
             onInput?(InputState(start: true))
@@ -222,10 +252,10 @@ private final class InputHostingSKView: SKView {
         case 124 where heldDirection == .right:
             stopRepeatingDirection()
             return true
-        case 125 where heldDirection == .up:
+        case 125 where heldDirection == .down:
             stopRepeatingDirection()
             return true
-        case 126 where heldDirection == .down:
+        case 126 where heldDirection == .up:
             stopRepeatingDirection()
             return true
         default:

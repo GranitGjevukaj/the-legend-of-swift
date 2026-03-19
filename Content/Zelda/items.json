@@ -14,21 +14,21 @@
   {
     "id" : "bomb",
     "name" : "Bomb",
-    "shopPrice" : 48
+    "shopPrice" : 20
   },
   {
     "id" : "boomerang",
     "name" : "Boomerang",
-    "shopPrice" : 70
+    "shopPrice" : 60
   },
   {
     "id" : "candle",
     "name" : "Blue Candle",
-    "shopPrice" : 48
+    "shopPrice" : 60
   },
   {
     "id" : "arrow",
     "name" : "Arrow",
-    "shopPrice" : 68
+    "shopPrice" : 80
   }
 ]

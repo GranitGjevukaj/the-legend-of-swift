@@ -55,6 +55,9 @@ public enum GamePhase: Equatable, Sendable {
 public enum GameEvent: Equatable, Sendable {
     case moved(to: Position)
     case enteredScreen(ScreenCoordinate)
+    case enteredCave(ScreenCoordinate)
+    case exitedCave(ScreenCoordinate)
+    case collectedItem(ItemDefinition.Kind)
     case tookDamage(amount: Int)
     case enemyDefeated(Enemy.Kind)
 }
@@ -63,6 +66,7 @@ public struct GameState: Sendable {
     public private(set) var slot: Int
     public private(set) var overworld: Overworld
     public private(set) var currentScreen: ScreenCoordinate
+    public private(set) var cave: CaveState?
     public private(set) var link: Link
     public private(set) var enemies: [Enemy]
     public private(set) var projectiles: [Projectile]
@@ -73,6 +77,7 @@ public struct GameState: Sendable {
         slot: Int = 0,
         overworld: Overworld = .starterOverworld(),
         currentScreen: ScreenCoordinate = ScreenCoordinate(column: 7, row: 3),
+        cave: CaveState? = nil,
         link: Link = Link.spawnPoint,
         enemies: [Enemy] = [],
         projectiles: [Projectile] = [],
@@ -82,6 +87,7 @@ public struct GameState: Sendable {
         self.slot = slot
         self.overworld = overworld
         self.currentScreen = currentScreen
+        self.cave = cave
         self.link = link
         self.enemies = enemies
         self.projectiles = projectiles
@@ -100,6 +106,7 @@ public struct GameState: Sendable {
     public mutating func startNewGame(slot: Int, startScreen: ScreenCoordinate, startLink: Link?) {
         self.slot = slot
         currentScreen = startScreen
+        cave = nil
         link = startLink ?? .spawnPoint
         enemies = []
         projectiles = []
@@ -141,6 +148,14 @@ public struct GameState: Sendable {
         }
     }
 
+    public func roomFlags(at coordinate: ScreenCoordinate) -> Int {
+        overworld.flags(at: coordinate)
+    }
+
+    public var currentRoomFlags: Int {
+        roomFlags(at: currentScreen)
+    }
+
     private mutating func tickPlaying(input: InputState) -> [GameEvent] {
         var events: [GameEvent] = []
 
@@ -153,7 +168,13 @@ public struct GameState: Sendable {
             let step = link.speed
             let candidate = link.position.moved(direction: direction, step: step)
 
-            if shouldStartScroll(candidate: candidate, direction: direction) {
+            if let cave, cave.shouldExit(candidate: candidate, direction: direction) {
+                exitCave(cave)
+                events.append(.exitedCave(currentScreen))
+                return events
+            }
+
+            if cave == nil, shouldStartScroll(candidate: candidate, direction: direction) {
                 startScroll(direction: direction)
                 return events
             }
@@ -162,6 +183,26 @@ public struct GameState: Sendable {
                 link.facing = direction
                 link.position = candidate
                 events.append(.moved(to: candidate))
+
+                if
+                    cave == nil,
+                    direction == .up,
+                    let entrance = overworld.caveEntrance(at: currentScreen, pixelPosition: candidate)
+                {
+                    enterCave(entrance)
+                    events.append(.enteredCave(currentScreen))
+                    return events
+                }
+
+                if
+                    cave != nil,
+                    (currentRoomFlags & 0x10) == 0,
+                    let pickup = overworld.cavePickup(at: currentScreen, pixelPosition: candidate)
+                {
+                    collectCavePickup(pickup)
+                    events.append(.collectedItem(pickup.kind))
+                    return events
+                }
             }
         }
 
@@ -178,7 +219,7 @@ public struct GameState: Sendable {
     }
 
     private var currentRoom: Room {
-        overworld.room(at: currentScreen) ?? .starterRoom()
+        cave?.room ?? overworld.room(at: currentScreen) ?? .starterRoom()
     }
 
     private mutating func startScroll(direction: Direction) {
@@ -248,7 +289,46 @@ public struct GameState: Sendable {
     }
 
     private mutating func loadEnemiesForCurrentScreen() {
-        enemies = overworld.defaultEnemies(at: currentScreen)
+        if cave != nil {
+            enemies = []
+        } else {
+            enemies = overworld.defaultEnemies(at: currentScreen)
+        }
+    }
+
+    private mutating func enterCave(_ entrance: CaveEntrance) {
+        cave = CaveState(parentScreen: currentScreen, entrance: entrance)
+        link.position = CaveState.spawnPosition
+        link.facing = .up
+        loadEnemiesForCurrentScreen()
+    }
+
+    private mutating func exitCave(_ cave: CaveState) {
+        self.cave = nil
+        link.position = cave.entrance.exteriorSpawnPosition
+        link.facing = .down
+        loadEnemiesForCurrentScreen()
+    }
+
+    private mutating func collectCavePickup(_ pickup: CavePickup) {
+        overworld.roomFlags[currentScreen] = currentRoomFlags | 0x10
+
+        switch pickup.kind {
+        case .woodenSword:
+            inventory.swordLevel = max(inventory.swordLevel, 1)
+            inventory.unlockedItems.insert(.woodenSword)
+        case .whiteSword:
+            inventory.swordLevel = max(inventory.swordLevel, 2)
+            inventory.unlockedItems.insert(.whiteSword)
+        case .magicSword:
+            inventory.swordLevel = max(inventory.swordLevel, 3)
+            inventory.unlockedItems.insert(.magicSword)
+        case .bomb:
+            inventory.bombs += 4
+            inventory.unlockedItems.insert(.bomb)
+        default:
+            inventory.unlockedItems.insert(pickup.kind)
+        }
     }
 }
 

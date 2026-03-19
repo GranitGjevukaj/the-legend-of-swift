@@ -3,211 +3,107 @@
   "rooms" : [
     {
       "doors" : [
-        "north:open",
-        "south:open",
-        "west:open",
-        "east:open"
-      ],
-      "enemies" : [
-        "octorok",
-        "stalfos"
-      ],
-      "id" : "D6_R0"
-    },
-    {
-      "doors" : [
-        "north:bombable",
-        "south:locked",
-        "west:bombable",
-        "east:locked"
+        "north",
+        "south",
+        "west",
+        "east"
       ],
       "enemies" : [
         "stalfos",
-        "stalfos"
+        "gibdo"
       ],
-      "id" : "D6_R1"
+      "id" : "D6_R0_default"
     },
     {
       "doors" : [
-        "north:bombable",
-        "south:locked",
-        "west:bombable",
-        "east:locked"
+        "north",
+        "south",
+        "west",
+        "east"
       ],
       "enemies" : [
         "stalfos",
-        "stalfos"
-      ],
-      "id" : "D6_R2"
-    },
-    {
-      "doors" : [
-        "north:bombable",
-        "south:locked",
-        "west:bombable",
-        "east:locked"
-      ],
-      "enemies" : [
-        "octorok",
-        "stalfos"
-      ],
-      "id" : "D6_R3"
-    },
-    {
-      "doors" : [
-        "north:open",
-        "south:open",
-        "west:open",
-        "east:open"
-      ],
-      "enemies" : [
-        "octorok",
-        "stalfos"
-      ],
-      "id" : "D6_R4"
-    },
-    {
-      "doors" : [
-        "north:open",
-        "south:locked",
-        "west:bombable",
-        "east:locked"
-      ],
-      "enemies" : [
-        "wizzrobe",
-        "wizzrobe"
-      ],
-      "id" : "D6_R5"
-    },
-    {
-      "doors" : [
-        "north:bombable",
-        "south:open",
-        "west:open",
-        "east:bombable"
-      ],
-      "enemies" : [
-        "wizzrobe",
-        "wizzrobe"
-      ],
-      "id" : "D6_R6"
-    },
-    {
-      "doors" : [
-        "north:bombable",
-        "south:locked",
-        "west:bombable",
-        "east:locked"
-      ],
-      "enemies" : [
-        "octorok",
-        "stalfos"
-      ],
-      "id" : "D6_R7"
-    },
-    {
-      "doors" : [
-        "north:shutter",
-        "south:open",
-        "west:shutter",
-        "east:locked"
-      ],
-      "enemies" : [
-        "wizzrobe",
         "gibdo"
       ],
-      "id" : "D6_R8"
+      "id" : "D6_R1_default"
     },
     {
       "doors" : [
-        "north:locked",
-        "south:locked",
-        "west:bombable",
-        "east:locked"
+        "north",
+        "south",
+        "west",
+        "east"
       ],
       "enemies" : [
-        "gibdo",
-        "stalfos"
-      ],
-      "id" : "D6_R9"
-    },
-    {
-      "doors" : [
-        "north:bombable",
-        "south:locked",
-        "west:bombable",
-        "east:locked"
-      ],
-      "enemies" : [
-        "gibdo",
-        "darknut"
-      ],
-      "id" : "D6_R10"
-    },
-    {
-      "doors" : [
-        "north:shutter",
-        "south:locked",
-        "west:bombable",
-        "east:locked"
-      ],
-      "enemies" : [
-        "wizzrobe",
+        "stalfos",
         "gibdo"
       ],
-      "id" : "D6_R11"
+      "id" : "D6_R2_default"
     },
     {
       "doors" : [
-        "north:shutter",
-        "south:open",
-        "west:shutter",
-        "east:locked"
+        "north",
+        "south",
+        "west",
+        "east"
       ],
       "enemies" : [
-        "wizzrobe",
-        "darknut"
-      ],
-      "id" : "D6_R12"
-    },
-    {
-      "doors" : [
-        "north:open",
-        "south:open",
-        "west:shutter",
-        "east:locked"
-      ],
-      "enemies" : [
-        "tektite",
-        "octorok"
-      ],
-      "id" : "D6_R13"
-    },
-    {
-      "doors" : [
-        "north:shutter",
-        "south:open",
-        "west:open",
-        "east:locked"
-      ],
-      "enemies" : [
-        "darknut",
-        "wizzrobe"
-      ],
-      "id" : "D6_R14"
-    },
-    {
-      "doors" : [
-        "north:shutter",
-        "south:open",
-        "west:bombable",
-        "east:locked"
-      ],
-      "enemies" : [
-        "wizzrobe",
+        "stalfos",
         "gibdo"
       ],
-      "id" : "D6_R15"
+      "id" : "D6_R3_default"
+    },
+    {
+      "doors" : [
+        "north",
+        "south",
+        "west",
+        "east"
+      ],
+      "enemies" : [
+        "stalfos",
+        "gibdo"
+      ],
+      "id" : "D6_R4_default"
+    },
+    {
+      "doors" : [
+        "north",
+        "south",
+        "west",
+        "east"
+      ],
+      "enemies" : [
+        "stalfos",
+        "gibdo"
+      ],
+      "id" : "D6_R5_default"
+    },
+    {
+      "doors" : [
+        "north",
+        "south",
+        "west",
+        "east"
+      ],
+      "enemies" : [
+        "stalfos",
+        "gibdo"
+      ],
+      "id" : "D6_R6_default"
+    },
+    {
+      "doors" : [
+        "north",
+        "south",
+        "west",
+        "east"
+      ],
+      "enemies" : [
+        "stalfos",
+        "gibdo"
+      ],
+      "id" : "D6_R7_default"
     }
   ]
 }

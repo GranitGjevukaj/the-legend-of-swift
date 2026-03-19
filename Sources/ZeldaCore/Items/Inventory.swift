@@ -21,7 +21,7 @@ public struct Inventory: Codable, Equatable, Sendable {
         rupees: 0,
         bombs: 8,
         keys: 0,
-        swordLevel: 1,
-        unlockedItems: [.woodenSword]
+        swordLevel: 0,
+        unlockedItems: []
     )
 }

@@ -10,6 +10,9 @@ Implemented foundation milestone:
 - Headless game loop/state with movement, collision, pause, transitions, and combat stubs
 - Deterministic extraction CLI producing `Content/Zelda` artifacts
 : Overworld, palettes, dungeons, tilesets, enemies, items, damage tables, text, audio metadata, and sprite manifests now consume ASM byte tables (`.byte`/`.db`) and `.incbin` payloads when provided
+: Overworld extraction now also carries ROM-backed overworld cave layouts for runtime cave rendering
+: Overworld extraction now also carries cave definitions (cave index, dweller type, and wares) for runtime cave contents
+: Overworld screens now also carry ROM-backed underground exit coordinates used for cave exit placement
 : Link walking sprites now extract real ROM-backed frame pixels for the runtime renderer instead of placeholder-only manifests
 : Extraction now routes through a centralized Zelda disassembly symbol catalog with exact-label + bank/file-hint priority before generic keyword fallback
 - SwiftUI + SpriteKit macOS shell (`zelda-mac`) with title, file select, and playable room
