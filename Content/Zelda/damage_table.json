@@ -1,76 +1,76 @@
 [
   {
-    "amount" : 1,
+    "amount" : 7,
     "enemy" : "octorok",
     "weapon" : "wooden_sword"
   },
   {
-    "amount" : 2,
+    "amount" : 0,
     "enemy" : "octorok",
     "weapon" : "white_sword"
   },
   {
-    "amount" : 4,
+    "amount" : 0,
     "enemy" : "octorok",
     "weapon" : "magic_sword"
   },
   {
-    "amount" : 2,
+    "amount" : 0,
     "enemy" : "octorok",
     "weapon" : "arrow"
   },
   {
-    "amount" : 4,
+    "amount" : 0,
     "enemy" : "octorok",
     "weapon" : "bomb"
   },
   {
-    "amount" : 1,
+    "amount" : 0,
     "enemy" : "tektite",
     "weapon" : "wooden_sword"
   },
   {
-    "amount" : 2,
+    "amount" : 0,
     "enemy" : "tektite",
     "weapon" : "white_sword"
   },
   {
-    "amount" : 4,
+    "amount" : 5,
     "enemy" : "tektite",
     "weapon" : "magic_sword"
   },
   {
-    "amount" : 2,
+    "amount" : 5,
     "enemy" : "tektite",
     "weapon" : "arrow"
   },
   {
-    "amount" : 4,
+    "amount" : 5,
     "enemy" : "tektite",
     "weapon" : "bomb"
   },
   {
-    "amount" : 1,
+    "amount" : 5,
     "enemy" : "leever",
     "weapon" : "wooden_sword"
   },
   {
-    "amount" : 2,
+    "amount" : 1,
     "enemy" : "leever",
     "weapon" : "white_sword"
   },
   {
-    "amount" : 4,
+    "amount" : 1,
     "enemy" : "leever",
     "weapon" : "magic_sword"
   },
   {
-    "amount" : 2,
+    "amount" : 1,
     "enemy" : "leever",
     "weapon" : "arrow"
   },
   {
-    "amount" : 4,
+    "amount" : 1,
     "enemy" : "leever",
     "weapon" : "bomb"
   },
@@ -80,47 +80,47 @@
     "weapon" : "wooden_sword"
   },
   {
-    "amount" : 2,
+    "amount" : 1,
     "enemy" : "peahat",
     "weapon" : "white_sword"
   },
   {
-    "amount" : 4,
+    "amount" : 1,
     "enemy" : "peahat",
     "weapon" : "magic_sword"
   },
   {
-    "amount" : 2,
+    "amount" : 1,
     "enemy" : "peahat",
     "weapon" : "arrow"
   },
   {
-    "amount" : 4,
+    "amount" : 1,
     "enemy" : "peahat",
     "weapon" : "bomb"
   },
   {
-    "amount" : 1,
+    "amount" : 3,
     "enemy" : "stalfos",
     "weapon" : "wooden_sword"
   },
   {
-    "amount" : 2,
+    "amount" : 3,
     "enemy" : "stalfos",
     "weapon" : "white_sword"
   },
   {
-    "amount" : 4,
+    "amount" : 1,
     "enemy" : "stalfos",
     "weapon" : "magic_sword"
   },
   {
-    "amount" : 2,
+    "amount" : 1,
     "enemy" : "stalfos",
     "weapon" : "arrow"
   },
   {
-    "amount" : 4,
+    "amount" : 1,
     "enemy" : "stalfos",
     "weapon" : "bomb"
   },
@@ -130,22 +130,22 @@
     "weapon" : "wooden_sword"
   },
   {
-    "amount" : 2,
+    "amount" : 1,
     "enemy" : "gibdo",
     "weapon" : "white_sword"
   },
   {
-    "amount" : 4,
+    "amount" : 1,
     "enemy" : "gibdo",
     "weapon" : "magic_sword"
   },
   {
-    "amount" : 2,
+    "amount" : 1,
     "enemy" : "gibdo",
     "weapon" : "arrow"
   },
   {
-    "amount" : 4,
+    "amount" : 1,
     "enemy" : "gibdo",
     "weapon" : "bomb"
   }

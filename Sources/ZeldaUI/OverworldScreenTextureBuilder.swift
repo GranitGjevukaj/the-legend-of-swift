@@ -16,9 +16,11 @@ enum OverworldScreenTextureBuilder {
         let width = Room.pixelWidth
         let height = Room.pixelHeight
         var rgba = Array(repeating: UInt8(0), count: width * height * 4)
+        let usesFallbackVisuals = isSyntheticDefaultScreen(screen)
 
-        let paletteRows = resolvedPaletteRows(from: palettes)
-        let tileCount = max(1, tileSet?.tiles.count ?? 0)
+        let paletteRows = resolvedPaletteRows(from: palettes, preferFallback: usesFallbackVisuals)
+        let effectiveTileSet = usesFallbackVisuals ? nil : tileSet
+        let tileCount = max(1, effectiveTileSet?.tiles.count ?? 0)
 
         for tileRow in 0..<Room.rows {
             for tileColumn in 0..<Room.columns {
@@ -36,7 +38,7 @@ enum OverworldScreenTextureBuilder {
                         let subtileOffset = metatileOffset(x: pixelX, y: pixelY)
                         let sourceTile = squareTiles[subtileOffset]
                         let tileIndex = sourceTile % tileCount
-                        let tilePixels = tileSet?.tiles[tileIndex].pixels
+                        let tilePixels = effectiveTileSet?.tiles[tileIndex].pixels
                         let colorSlot = sampleColorSlot(
                             descriptor: descriptor,
                             tilePixels: tilePixels,
@@ -60,6 +62,10 @@ enum OverworldScreenTextureBuilder {
         return texture(from: rgba, width: width, height: height)
     }
 
+    private static func isSyntheticDefaultScreen(_ screen: OverworldScreen) -> Bool {
+        screen.id.hasSuffix("_default")
+    }
+
     private static func metatileOffset(x: Int, y: Int) -> Int {
         let isRight = x >= 8
         let isBottom = y >= 8
@@ -76,7 +82,7 @@ enum OverworldScreenTextureBuilder {
         }
     }
 
-    private static func resolvedPaletteRows(from palettes: PaletteBundle?) -> [[RGBA]] {
+    private static func resolvedPaletteRows(from palettes: PaletteBundle?, preferFallback: Bool = false) -> [[RGBA]] {
         let fallbackPaletteRow = [
             RGBA(r: 20, g: 20, b: 28, a: 255),
             RGBA(r: 46, g: 84, b: 42, a: 255),
@@ -84,6 +90,10 @@ enum OverworldScreenTextureBuilder {
             RGBA(r: 198, g: 216, b: 112, a: 255)
         ]
         let fallbackRows = Array(repeating: fallbackPaletteRow, count: 4)
+
+        if preferFallback {
+            return fallbackRows
+        }
 
         guard
             let palettes

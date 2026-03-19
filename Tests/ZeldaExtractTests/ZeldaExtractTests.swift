@@ -357,6 +357,33 @@ final class ZeldaExtractTests: XCTestCase {
         XCTAssertEqual(Array(tileBin.prefix(32)), Array(incbinData))
     }
 
+    func testIncbinResolvesFromLocalSiblingWithoutBinsXML() throws {
+        let fileManager = FileManager.default
+        let base = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let sourceDir = base.appendingPathComponent("src", isDirectory: true)
+        let nestedSourceDir = sourceDir.appendingPathComponent("deep/path/for/local-incbin", isDirectory: true)
+        let outputDir = base.appendingPathComponent("out", isDirectory: true)
+
+        try fileManager.createDirectory(at: nestedSourceDir, withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: outputDir, withIntermediateDirectories: true)
+        defer { try? fileManager.removeItem(at: base) }
+
+        let incbinData = Data((0..<32).map { UInt8(($0 * 7) & 0xFF) })
+        try incbinData.write(to: nestedSourceDir.appendingPathComponent("PatternBlockOWBG.dat"))
+
+        let asm = """
+        PatternBlockOWBG:
+            .incbin "PatternBlockOWBG.dat"
+        """
+
+        try asm.write(to: nestedSourceDir.appendingPathComponent("tiles.asm"), atomically: true, encoding: .utf8)
+        _ = try ZeldaExtractor(config: ExtractionConfig(sourceURL: sourceDir, outputURL: outputDir)).run()
+
+        let tileBin = try Data(contentsOf: outputDir.appendingPathComponent("tilesets/overworld.bin"))
+        XCTAssertEqual(Array(tileBin.prefix(32)), Array(incbinData))
+    }
+
     private func realDisassemblySourceURL() throws -> URL {
         let env = ProcessInfo.processInfo.environment
         let override = env["ZELDA1_DISASSEMBLY_SRC"] ?? env["ZELDA_DISASSEMBLY_SRC"]

@@ -4,9 +4,15 @@ import ZeldaCore
 
 enum OverworldContentBuilder {
     static func build(from data: OverworldData?) -> Overworld {
-        var overworld = Overworld.starterOverworld()
+        var overworld = Overworld(
+            rooms: [:],
+            enemySpawns: [:],
+            caveEntrances: [:],
+            roomFlags: [:],
+            cavePickups: [:]
+        )
         guard let data else {
-            return overworld
+            return Overworld.starterOverworld()
         }
 
         for screen in data.screens {
@@ -53,6 +59,9 @@ enum OverworldContentBuilder {
                let definition = data.caveDefinitions?.first(where: { $0.index == caveIndex })
             {
                 overworld.cavePickups[coordinate] = definition.items.compactMap { item in
+                    guard item.price == 0 else {
+                        return nil
+                    }
                     guard let itemId = item.itemId, let kind = itemKind(for: itemId) else {
                         return nil
                     }

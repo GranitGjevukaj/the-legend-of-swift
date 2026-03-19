@@ -3,107 +3,211 @@
   "rooms" : [
     {
       "doors" : [
-        "north",
-        "south",
-        "west",
-        "east"
+        "north:open",
+        "south:open",
+        "west:open",
+        "east:open"
       ],
       "enemies" : [
-        "stalfos",
-        "gibdo"
+        "gibdo",
+        "stalfos"
       ],
-      "id" : "D5_R0_default"
+      "id" : "D5_R0"
     },
     {
       "doors" : [
-        "north",
-        "south",
-        "west",
-        "east"
+        "north:shutter",
+        "south:open",
+        "west:locked",
+        "east:open"
       ],
       "enemies" : [
         "stalfos",
         "gibdo"
       ],
-      "id" : "D5_R1_default"
+      "id" : "D5_R1"
     },
     {
       "doors" : [
-        "north",
-        "south",
-        "west",
-        "east"
+        "north:shutter",
+        "south:open",
+        "west:locked",
+        "east:open"
       ],
       "enemies" : [
         "stalfos",
         "gibdo"
       ],
-      "id" : "D5_R2_default"
+      "id" : "D5_R2"
     },
     {
       "doors" : [
-        "north",
-        "south",
-        "west",
-        "east"
+        "north:open",
+        "south:open",
+        "west:open",
+        "east:open"
       ],
       "enemies" : [
-        "stalfos",
-        "gibdo"
+        "gibdo",
+        "stalfos"
       ],
-      "id" : "D5_R3_default"
+      "id" : "D5_R3"
     },
     {
       "doors" : [
-        "north",
-        "south",
-        "west",
-        "east"
+        "north:open",
+        "south:open",
+        "west:bombable",
+        "east:open"
       ],
       "enemies" : [
         "stalfos",
-        "gibdo"
+        "tektite"
       ],
-      "id" : "D5_R4_default"
+      "id" : "D5_R4"
     },
     {
       "doors" : [
-        "north",
-        "south",
-        "west",
-        "east"
+        "north:locked",
+        "south:open",
+        "west:shutter",
+        "east:open"
       ],
       "enemies" : [
-        "stalfos",
+        "tektite",
         "gibdo"
       ],
-      "id" : "D5_R5_default"
+      "id" : "D5_R5"
     },
     {
       "doors" : [
-        "north",
-        "south",
-        "west",
-        "east"
+        "north:bombable",
+        "south:open",
+        "west:open",
+        "east:open"
       ],
       "enemies" : [
-        "stalfos",
+        "octorok",
         "gibdo"
       ],
-      "id" : "D5_R6_default"
+      "id" : "D5_R6"
     },
     {
       "doors" : [
-        "north",
-        "south",
-        "west",
-        "east"
+        "north:open",
+        "south:open",
+        "west:shutter",
+        "east:open"
+      ],
+      "enemies" : [
+        "stalfos",
+        "darknut"
+      ],
+      "id" : "D5_R7"
+    },
+    {
+      "doors" : [
+        "north:open",
+        "south:open",
+        "west:open",
+        "east:open"
+      ],
+      "enemies" : [
+        "octorok",
+        "octorok"
+      ],
+      "id" : "D5_R8"
+    },
+    {
+      "doors" : [
+        "north:locked",
+        "south:locked",
+        "west:shutter",
+        "east:locked"
+      ],
+      "enemies" : [
+        "tektite",
+        "darknut"
+      ],
+      "id" : "D5_R9"
+    },
+    {
+      "doors" : [
+        "north:locked",
+        "south:open",
+        "west:open",
+        "east:locked"
+      ],
+      "enemies" : [
+        "tektite",
+        "tektite"
+      ],
+      "id" : "D5_R10"
+    },
+    {
+      "doors" : [
+        "north:open",
+        "south:locked",
+        "west:shutter",
+        "east:locked"
+      ],
+      "enemies" : [
+        "octorok",
+        "stalfos"
+      ],
+      "id" : "D5_R11"
+    },
+    {
+      "doors" : [
+        "north:open",
+        "south:open",
+        "west:open",
+        "east:open"
+      ],
+      "enemies" : [
+        "stalfos",
+        "stalfos"
+      ],
+      "id" : "D5_R12"
+    },
+    {
+      "doors" : [
+        "north:open",
+        "south:open",
+        "west:open",
+        "east:open"
+      ],
+      "enemies" : [
+        "stalfos",
+        "stalfos"
+      ],
+      "id" : "D5_R13"
+    },
+    {
+      "doors" : [
+        "north:open",
+        "south:open",
+        "west:open",
+        "east:open"
       ],
       "enemies" : [
         "stalfos",
         "gibdo"
       ],
-      "id" : "D5_R7_default"
+      "id" : "D5_R14"
+    },
+    {
+      "doors" : [
+        "north:open",
+        "south:open",
+        "west:open",
+        "east:open"
+      ],
+      "enemies" : [
+        "stalfos",
+        "stalfos"
+      ],
+      "id" : "D5_R15"
     }
   ]
 }

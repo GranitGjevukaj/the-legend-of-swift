@@ -271,9 +271,7 @@ public final class GameScene: SKScene {
             return
         }
 
-        let screen = overworldData?.screens.first(where: {
-            $0.column == state.currentScreen.column && $0.row == state.currentScreen.row
-        })
+        let screen = screenData(for: state)
         guard let caveIndex = screen?.caveIndex else {
             return
         }
@@ -282,6 +280,12 @@ public final class GameScene: SKScene {
         for node in CaveContentNodeBuilder.buildNodes(definition: definition, roomFlags: state.currentRoomFlags) {
             caveContentLayer.addChild(node)
         }
+    }
+
+    private func screenData(for state: GameState) -> OverworldScreen? {
+        overworldData?.screens.first(where: {
+            $0.column == state.currentScreen.column && $0.row == state.currentScreen.row
+        })
     }
 
     private func currentLinkTexture(for direction: Direction, walkFrame: Int) -> SKTexture? {

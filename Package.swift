@@ -68,6 +68,11 @@ let package = Package(
             name: "ZeldaExtractTests",
             dependencies: ["ZeldaExtractCLI"],
             path: "Tests/ZeldaExtractTests"
+        ),
+        .testTarget(
+            name: "ZeldaUITests",
+            dependencies: ["ZeldaUI", "ZeldaCore", "ZeldaContent"],
+            path: "Tests/ZeldaUITests"
         )
     ]
 )

@@ -137,12 +137,22 @@ public struct ContentLoader: Sendable {
             return name.hasPrefix("link_") && name.hasSuffix(".json")
         }
         .sorted { lhs, rhs in
+            let lhsName = lhs.lastPathComponent
+            let rhsName = rhs.lastPathComponent
+
+            let lhsRank = spriteSheetPriority(for: lhsName)
+            let rhsRank = spriteSheetPriority(for: rhsName)
+            if lhsRank != rhsRank {
+                return lhsRank < rhsRank
+            }
+
             let lhsDate = (try? lhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
             let rhsDate = (try? rhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
-            if lhsDate == rhsDate {
-                return lhs.lastPathComponent < rhs.lastPathComponent
+            if lhsDate != rhsDate {
+                return lhsDate > rhsDate
             }
-            return lhsDate > rhsDate
+
+            return lhsName < rhsName
         }
 
         guard let selected = candidates.first else {
@@ -151,5 +161,18 @@ public struct ContentLoader: Sendable {
 
         let data = try Data(contentsOf: selected)
         return try decoder.decode(SpriteSheet.self, from: data)
+    }
+
+    private func spriteSheetPriority(for fileName: String) -> Int {
+        switch fileName {
+        case "link_src.json":
+            return 0
+        case "link_asm.json":
+            return 1
+        case "link_default.json":
+            return 2
+        default:
+            return 3
+        }
     }
 }
