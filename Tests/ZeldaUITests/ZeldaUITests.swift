@@ -55,4 +55,25 @@ final class ZeldaUITests: XCTestCase {
         let overworld = OverworldContentBuilder.build(from: data)
         XCTAssertTrue(overworld.defaultEnemies(at: coordinate).isEmpty)
     }
+
+    @MainActor
+    func testSwordCaveRendersOldManSwordAndFlames() {
+        let definition = CaveDefinition(
+            index: 0,
+            personType: 0x6A,
+            textSelector: 0,
+            caveFlags: 0x04,
+            items: [
+                CaveItem(slot: 1, itemId: 0x01, price: 0, flags: 0)
+            ]
+        )
+
+        let nodes = CaveContentNodeBuilder.buildNodes(definition: definition, roomFlags: 0)
+        let names = Set(nodes.compactMap(\.name))
+
+        XCTAssertTrue(names.contains("cave-person"))
+        XCTAssertTrue(names.contains("cave-item-1"))
+        XCTAssertTrue(names.contains("cave-flame-0"))
+        XCTAssertTrue(names.contains("cave-flame-1"))
+    }
 }

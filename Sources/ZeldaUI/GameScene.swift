@@ -33,7 +33,8 @@ public final class GameSession: ObservableObject {
             paletteBundle: loadedContent?.palettes,
             overworldData: loadedContent?.overworld,
             overworldTileSet: tileSet,
-            linkSpriteSheet: loadedContent?.linkSpriteSheet
+            linkSpriteSheet: loadedContent?.linkSpriteSheet,
+            caveSpriteSheet: loadedContent?.caveSpriteSheet
         )
         scene.onStateChange = { [weak self] newState in
             self?.state = newState
@@ -101,6 +102,7 @@ public final class GameScene: SKScene {
     private let overworldData: OverworldData?
     private let overworldTileSet: TileSet?
     private let linkSpriteSheet: SpriteSheet?
+    private let caveSpriteSheet: SpriteSheet?
     private var linkTextures: [Direction: [SKTexture]] = [:]
     private var backgroundTextureCache: [ScreenCoordinate: SKTexture] = [:]
     private var caveTextureCache: [String: SKTexture] = [:]
@@ -114,13 +116,15 @@ public final class GameScene: SKScene {
         paletteBundle: PaletteBundle? = nil,
         overworldData: OverworldData? = nil,
         overworldTileSet: TileSet? = nil,
-        linkSpriteSheet: SpriteSheet? = nil
+        linkSpriteSheet: SpriteSheet? = nil,
+        caveSpriteSheet: SpriteSheet? = nil
     ) {
         gameState = initialState
         linkPaletteBundle = paletteBundle
         self.overworldData = overworldData
         self.overworldTileSet = overworldTileSet
         self.linkSpriteSheet = linkSpriteSheet
+        self.caveSpriteSheet = caveSpriteSheet
         lastLinkPosition = initialState.link.position
         super.init(size: CGSize(width: Room.pixelWidth, height: Room.pixelHeight))
         scaleMode = .aspectFit
@@ -277,7 +281,12 @@ public final class GameScene: SKScene {
         }
 
         let definition = overworldData?.caveDefinitions?.first(where: { $0.index == caveIndex })
-        for node in CaveContentNodeBuilder.buildNodes(definition: definition, roomFlags: state.currentRoomFlags) {
+        for node in CaveContentNodeBuilder.buildNodes(
+            definition: definition,
+            roomFlags: state.currentRoomFlags,
+            spriteSheet: caveSpriteSheet,
+            paletteBundle: linkPaletteBundle
+        ) {
             caveContentLayer.addChild(node)
         }
     }

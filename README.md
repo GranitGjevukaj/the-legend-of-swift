@@ -14,6 +14,7 @@ Implemented foundation milestone:
 : Overworld extraction now also carries cave definitions (cave index, dweller type, and wares) for runtime cave contents
 : Overworld screens now also carry ROM-backed underground exit coordinates used for cave exit placement
 : Link walking sprites now extract real ROM-backed frame pixels for the runtime renderer instead of placeholder-only manifests
+: Cave dweller and standing-fire sprites now extract real ROM-backed frame pixels for first-cave rendering
 : Extraction now routes through a centralized Zelda disassembly symbol catalog with exact-label + bank/file-hint priority before generic keyword fallback
 - SwiftUI + SpriteKit macOS shell (`zelda-mac`) with title, file select, and playable room
 - Test suite for core/content/extraction determinism

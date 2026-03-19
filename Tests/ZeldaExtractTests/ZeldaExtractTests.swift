@@ -266,7 +266,7 @@ final class ZeldaExtractTests: XCTestCase {
         defer { try? fileManager.removeItem(at: base) }
 
         let artifacts = try ZeldaExtractor(config: ExtractionConfig(sourceURL: sourceDir, outputURL: outputDir)).run()
-        XCTAssertEqual(artifacts.count, 20)
+        XCTAssertEqual(artifacts.count, 21)
 
         let decoder = JSONDecoder()
 
@@ -324,6 +324,11 @@ final class ZeldaExtractTests: XCTestCase {
         let linkSheet = try decoder.decode(SpriteSheet.self, from: linkSpriteData)
         XCTAssertEqual(linkSheet.frames.map(\.id), ["horizontal_0", "horizontal_1", "down", "up"])
         XCTAssertTrue(linkSheet.frames.allSatisfy { $0.pixels?.count == 256 })
+
+        let caveSpriteData = try Data(contentsOf: outputDir.appendingPathComponent("sprites/cave_src.json"))
+        let caveSheet = try decoder.decode(SpriteSheet.self, from: caveSpriteData)
+        XCTAssertTrue(caveSheet.frames.contains(where: { $0.id == "person_6a" && $0.pixels?.count == 256 }))
+        XCTAssertTrue(caveSheet.frames.contains(where: { $0.id == "standing_fire" && $0.pixels?.count == 256 }))
     }
 
     func testIncbinResolvesFromSiblingBinDirectory() throws {

@@ -31,7 +31,7 @@ public struct ZeldaRootView: View {
                 VStack(spacing: 0) {
                     HUDView(state: session.state)
 
-                    ZStack(alignment: .bottom) {
+                    ZStack(alignment: .top) {
                         GameSpriteContainer(
                             scene: session.scene,
                             onInput: { input in
@@ -42,6 +42,7 @@ public struct ZeldaRootView: View {
 
                         if let caveMessage = session.caveMessage {
                             CaveDialogueBanner(text: caveMessage)
+                                .padding(.top, 64)
                         }
                     }
                 }
@@ -68,23 +69,149 @@ private struct CaveDialogueBanner: View {
     let text: String
 
     var body: some View {
-        Text(text)
-            .font(.system(size: 12, weight: .bold, design: .monospaced))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .frame(maxWidth: .infinity)
-            .background(Color.black.opacity(0.78))
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(Color.white.opacity(0.15), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-            .padding(.horizontal, 16)
-            .padding(.bottom, 16)
+        let lines = Self.wrap(text.uppercased(), maxColumns: 20)
+
+        NESPixelText(lines: lines, pixelSize: 5, color: Color(red: 0.95, green: 0.95, blue: 0.95))
+            .padding(.horizontal, 6)
+            .padding(.vertical, 0)
+            .frame(width: 520, alignment: .center)
+    }
+
+    private static func wrap(_ text: String, maxColumns: Int) -> [String] {
+        let words = text.split(whereSeparator: \.isWhitespace).map(String.init)
+        guard !words.isEmpty else {
+            return [""]
+        }
+
+        var lines: [String] = []
+        var current = ""
+
+        for word in words {
+            if current.isEmpty {
+                current = word
+                continue
+            }
+
+            if current.count + 1 + word.count <= maxColumns {
+                current += " \(word)"
+                continue
+            }
+
+            lines.append(current)
+            current = word
+        }
+
+        if !current.isEmpty {
+            lines.append(current)
+        }
+
+        return lines
     }
 }
 
+private struct NESPixelText: View {
+    let lines: [String]
+    let pixelSize: CGFloat
+    let color: Color
+
+    private let glyphWidth = 5
+    private let glyphHeight = 7
+    private let characterAdvance = 6
+    private let lineAdvance = 8
+
+    var body: some View {
+        let metrics = canvasMetrics()
+        let maxColumns = lines.map(\.count).max() ?? 0
+
+        Canvas { context, _ in
+            for (lineIndex, line) in lines.enumerated() {
+                let originY = CGFloat(lineIndex * lineAdvance) * pixelSize
+                let centeredOffset = CGFloat(maxColumns - line.count) * CGFloat(characterAdvance) * pixelSize / 2.0
+
+                for (characterIndex, character) in line.enumerated() {
+                    let glyph = NESGlyphFont.glyph(for: character)
+                    let originX = centeredOffset + (CGFloat(characterIndex * characterAdvance) * pixelSize)
+
+                    for (row, rowBits) in glyph.enumerated() {
+                        for column in 0..<glyphWidth {
+                            let mask = UInt8(1 << (glyphWidth - 1 - column))
+                            guard (rowBits & mask) != 0 else { continue }
+
+                            let rect = CGRect(
+                                x: originX + (CGFloat(column) * pixelSize),
+                                y: originY + (CGFloat(row) * pixelSize),
+                                width: pixelSize,
+                                height: pixelSize
+                            )
+                            context.fill(Path(rect), with: .color(color))
+                        }
+                    }
+                }
+            }
+        }
+        .frame(width: metrics.width, height: metrics.height, alignment: .topLeading)
+    }
+
+    private func canvasMetrics() -> CGSize {
+        let maxColumns = lines.map(\.count).max() ?? 0
+        let widthUnits = max(1, (maxColumns * characterAdvance) - 1)
+        let heightUnits = max(1, (max(lines.count, 1) * lineAdvance) - (lineAdvance - glyphHeight))
+        return CGSize(width: CGFloat(widthUnits) * pixelSize, height: CGFloat(heightUnits) * pixelSize)
+    }
+}
+
+private enum NESGlyphFont {
+    static func glyph(for character: Character) -> [UInt8] {
+        let normalized = Character(String(character).uppercased())
+        return glyphs[normalized] ?? glyphs["?"]!
+    }
+
+    private static let glyphs: [Character: [UInt8]] = [
+        " ": [0, 0, 0, 0, 0, 0, 0],
+        "!": [0x04, 0x04, 0x04, 0x04, 0x04, 0x00, 0x04],
+        "'": [0x04, 0x04, 0x08, 0x00, 0x00, 0x00, 0x00],
+        ",": [0x00, 0x00, 0x00, 0x00, 0x04, 0x04, 0x08],
+        "-": [0x00, 0x00, 0x00, 0x0E, 0x00, 0x00, 0x00],
+        ".": [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04],
+        "?": [0x0E, 0x11, 0x01, 0x02, 0x04, 0x00, 0x04],
+        "A": [0x0E, 0x11, 0x11, 0x1F, 0x11, 0x11, 0x11],
+        "B": [0x1E, 0x11, 0x11, 0x1E, 0x11, 0x11, 0x1E],
+        "C": [0x0E, 0x11, 0x10, 0x10, 0x10, 0x11, 0x0E],
+        "D": [0x1C, 0x12, 0x11, 0x11, 0x11, 0x12, 0x1C],
+        "E": [0x1F, 0x10, 0x10, 0x1E, 0x10, 0x10, 0x1F],
+        "F": [0x1F, 0x10, 0x10, 0x1E, 0x10, 0x10, 0x10],
+        "G": [0x0E, 0x11, 0x10, 0x17, 0x11, 0x11, 0x0E],
+        "H": [0x11, 0x11, 0x11, 0x1F, 0x11, 0x11, 0x11],
+        "I": [0x0E, 0x04, 0x04, 0x04, 0x04, 0x04, 0x0E],
+        "J": [0x01, 0x01, 0x01, 0x01, 0x11, 0x11, 0x0E],
+        "K": [0x11, 0x12, 0x14, 0x18, 0x14, 0x12, 0x11],
+        "L": [0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x1F],
+        "M": [0x11, 0x1B, 0x15, 0x15, 0x11, 0x11, 0x11],
+        "N": [0x11, 0x19, 0x15, 0x13, 0x11, 0x11, 0x11],
+        "O": [0x0E, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0E],
+        "P": [0x1E, 0x11, 0x11, 0x1E, 0x10, 0x10, 0x10],
+        "Q": [0x0E, 0x11, 0x11, 0x11, 0x15, 0x12, 0x0D],
+        "R": [0x1E, 0x11, 0x11, 0x1E, 0x14, 0x12, 0x11],
+        "S": [0x0F, 0x10, 0x10, 0x0E, 0x01, 0x01, 0x1E],
+        "T": [0x1F, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04],
+        "U": [0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0E],
+        "V": [0x11, 0x11, 0x11, 0x11, 0x11, 0x0A, 0x04],
+        "W": [0x11, 0x11, 0x11, 0x15, 0x15, 0x15, 0x0A],
+        "X": [0x11, 0x11, 0x0A, 0x04, 0x0A, 0x11, 0x11],
+        "Y": [0x11, 0x11, 0x0A, 0x04, 0x04, 0x04, 0x04],
+        "Z": [0x1F, 0x01, 0x02, 0x04, 0x08, 0x10, 0x1F],
+        "0": [0x0E, 0x11, 0x13, 0x15, 0x19, 0x11, 0x0E],
+        "1": [0x04, 0x0C, 0x04, 0x04, 0x04, 0x04, 0x0E],
+        "2": [0x0E, 0x11, 0x01, 0x02, 0x04, 0x08, 0x1F],
+        "3": [0x1E, 0x01, 0x01, 0x0E, 0x01, 0x01, 0x1E],
+        "4": [0x02, 0x06, 0x0A, 0x12, 0x1F, 0x02, 0x02],
+        "5": [0x1F, 0x10, 0x10, 0x1E, 0x01, 0x01, 0x1E],
+        "6": [0x0E, 0x10, 0x10, 0x1E, 0x11, 0x11, 0x0E],
+        "7": [0x1F, 0x01, 0x02, 0x04, 0x08, 0x08, 0x08],
+        "8": [0x0E, 0x11, 0x11, 0x0E, 0x11, 0x11, 0x0E],
+        "9": [0x0E, 0x11, 0x11, 0x0F, 0x01, 0x01, 0x0E]
+    ]
+}
 private struct GameKeyboardShortcuts: View {
     let onInput: (InputState) -> Void
 

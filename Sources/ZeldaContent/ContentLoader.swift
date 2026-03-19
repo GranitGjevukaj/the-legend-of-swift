@@ -5,6 +5,7 @@ public struct LoadedContent: Sendable {
     public var dungeons: [DungeonData]
     public var palettes: PaletteBundle
     public var linkSpriteSheet: SpriteSheet?
+    public var caveSpriteSheet: SpriteSheet?
     public var enemies: [EnemyDefinition]
     public var items: [ItemData]
     public var damageTable: [DamageRule]
@@ -16,6 +17,7 @@ public struct LoadedContent: Sendable {
         dungeons: [DungeonData],
         palettes: PaletteBundle,
         linkSpriteSheet: SpriteSheet? = nil,
+        caveSpriteSheet: SpriteSheet? = nil,
         enemies: [EnemyDefinition],
         items: [ItemData],
         damageTable: [DamageRule],
@@ -26,6 +28,7 @@ public struct LoadedContent: Sendable {
         self.dungeons = dungeons
         self.palettes = palettes
         self.linkSpriteSheet = linkSpriteSheet
+        self.caveSpriteSheet = caveSpriteSheet
         self.enemies = enemies
         self.items = items
         self.damageTable = damageTable
@@ -83,7 +86,8 @@ public struct ContentLoader: Sendable {
     public func loadAll() throws -> LoadedContent {
         let overworld: OverworldData = try decode("overworld.json")
         let palettes: PaletteBundle = try decode("palettes.json")
-        let linkSpriteSheet = try loadLinkSpriteSheet()
+        let linkSpriteSheet = try loadSpriteSheet(prefix: "link")
+        let caveSpriteSheet = try loadSpriteSheet(prefix: "cave")
         let enemies: [EnemyDefinition] = try decode("enemies.json")
         let items: [ItemData] = try decode("items.json")
         let damage: [DamageRule] = try decode("damage_table.json")
@@ -103,6 +107,7 @@ public struct ContentLoader: Sendable {
             dungeons: dungeons,
             palettes: palettes,
             linkSpriteSheet: linkSpriteSheet,
+            caveSpriteSheet: caveSpriteSheet,
             enemies: enemies,
             items: items,
             damageTable: damage,
@@ -121,7 +126,7 @@ public struct ContentLoader: Sendable {
         return try decoder.decode(T.self, from: data)
     }
 
-    private func loadLinkSpriteSheet() throws -> SpriteSheet? {
+    private func loadSpriteSheet(prefix: String) throws -> SpriteSheet? {
         let spritesURL = baseURL.appendingPathComponent("sprites", isDirectory: true)
         guard FileManager.default.fileExists(atPath: spritesURL.path()) else {
             return nil
@@ -134,14 +139,14 @@ public struct ContentLoader: Sendable {
         )
         .filter { url in
             let name = url.lastPathComponent
-            return name.hasPrefix("link_") && name.hasSuffix(".json")
+            return name.hasPrefix("\(prefix)_") && name.hasSuffix(".json")
         }
         .sorted { lhs, rhs in
             let lhsName = lhs.lastPathComponent
             let rhsName = rhs.lastPathComponent
 
-            let lhsRank = spriteSheetPriority(for: lhsName)
-            let rhsRank = spriteSheetPriority(for: rhsName)
+            let lhsRank = spriteSheetPriority(for: lhsName, prefix: prefix)
+            let rhsRank = spriteSheetPriority(for: rhsName, prefix: prefix)
             if lhsRank != rhsRank {
                 return lhsRank < rhsRank
             }
@@ -163,13 +168,13 @@ public struct ContentLoader: Sendable {
         return try decoder.decode(SpriteSheet.self, from: data)
     }
 
-    private func spriteSheetPriority(for fileName: String) -> Int {
+    private func spriteSheetPriority(for fileName: String, prefix: String) -> Int {
         switch fileName {
-        case "link_src.json":
+        case "\(prefix)_src.json":
             return 0
-        case "link_asm.json":
+        case "\(prefix)_asm.json":
             return 1
-        case "link_default.json":
+        case "\(prefix)_default.json":
             return 2
         default:
             return 3
