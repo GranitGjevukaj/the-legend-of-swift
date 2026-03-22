@@ -22,5 +22,6 @@ This repository is organized for agentic milestone validation of the Zelda Swift
 
 - Prefer non-destructive edits and additive changes.
 - Keep scripts idempotent.
+- Never run `swift run zelda-extract --output Content/Zelda` directly for validation or milestone checks; always use `scripts/extract_zelda.sh` so ASM source auto-detection is preserved and fallback data does not overwrite checked-in content.
 - When touching extraction logic, rerun extraction and tests before reporting completion.
 - If generation changes intended output structure, update README and tests in the same change.

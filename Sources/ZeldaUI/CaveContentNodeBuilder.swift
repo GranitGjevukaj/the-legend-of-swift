@@ -62,10 +62,16 @@ enum CaveContentNodeBuilder {
                 continue
             }
 
-            let itemNode = SKSpriteNode(texture: itemTexture(for: itemId))
+            let itemNode = SKSpriteNode(
+                texture: caveItemTexture(
+                    for: itemId,
+                    spriteSheet: spriteSheet,
+                    paletteBundle: paletteBundle
+                )
+            )
             itemNode.name = "cave-item-\(item.slot)"
             itemNode.size = CGSize(width: 16, height: 16)
-            itemNode.position = position(x: wareXs[item.slot], nesY: 0x98)
+            itemNode.position = position(x: wareXs[item.slot], nesY: swordCaveItemNesY)
             itemNode.zPosition = 6
             nodes.append(itemNode)
         }
@@ -125,23 +131,52 @@ enum CaveContentNodeBuilder {
            ) {
             return texture
         }
-
-        let isMoblin = personType >= 0x7B
-        let rows = isMoblin ? moblinPixels : oldManPixels
-        return texture(from: rows)
+        return emptyTexture()
     }
 
-    private static func itemTexture(for itemId: Int) -> SKTexture {
-        switch itemId {
-        case 0x01:
-            return texture(from: woodenSwordPixels)
-        case 0x02:
-            return texture(from: whiteSwordPixels)
-        case 0x03:
-            return texture(from: magicSwordPixels)
-        default:
-            return texture(from: genericItemPixels)
+    static func itemTexture(
+        for itemId: Int,
+        spriteSheet: SpriteSheet? = nil,
+        paletteBundle: PaletteBundle? = nil
+    ) -> SKTexture {
+        if let extracted = extractedItemTexture(
+            for: itemId,
+            spriteSheet: spriteSheet,
+            paletteBundle: paletteBundle
+        ) {
+            return extracted
         }
+        return emptyTexture()
+    }
+
+    private static func caveItemTexture(
+        for itemId: Int,
+        spriteSheet: SpriteSheet?,
+        paletteBundle: PaletteBundle?
+    ) -> SKTexture {
+        let extractedID = "item_\(String(format: "%02x", itemId))"
+        if let texture = extractedTexture(
+            frameID: extractedID,
+            from: spriteSheet,
+            palette: caveItemExtractedPalette(for: itemId, from: paletteBundle)
+        ) {
+            return texture
+        }
+
+        return itemTexture(for: itemId, spriteSheet: spriteSheet, paletteBundle: paletteBundle)
+    }
+
+    private static func extractedItemTexture(
+        for itemId: Int,
+        spriteSheet: SpriteSheet?,
+        paletteBundle: PaletteBundle?
+    ) -> SKTexture? {
+        let extractedID = "item_\(String(format: "%02x", itemId))"
+        return extractedTexture(
+            frameID: extractedID,
+            from: spriteSheet,
+            palette: itemExtractedPalette(for: itemId, from: paletteBundle)
+        )
     }
 
     private static func flameTexture(
@@ -155,8 +190,7 @@ enum CaveContentNodeBuilder {
         ) {
             return texture
         }
-
-        return texture(from: flamePixels)
+        return emptyTexture()
     }
 
     private static func extractedTexture(
@@ -181,9 +215,9 @@ enum CaveContentNodeBuilder {
     private static func personExtractedPalette(from bundle: PaletteBundle?) -> [RGBA] {
         [
             RGBA(r: 0, g: 0, b: 0, a: 0),
-            nesColor(bundle: bundle, index: 48, fallback: RGBA(r: 252, g: 252, b: 252, a: 255)),
             nesColor(bundle: bundle, index: 22, fallback: RGBA(r: 228, g: 0, b: 88, a: 255)),
-            nesColor(bundle: bundle, index: 55, fallback: RGBA(r: 252, g: 224, b: 168, a: 255))
+            nesColor(bundle: bundle, index: 55, fallback: RGBA(r: 252, g: 224, b: 168, a: 255)),
+            nesColor(bundle: bundle, index: 48, fallback: RGBA(r: 252, g: 252, b: 252, a: 255))
         ]
     }
 
@@ -191,9 +225,61 @@ enum CaveContentNodeBuilder {
         [
             RGBA(r: 0, g: 0, b: 0, a: 0),
             nesColor(bundle: bundle, index: 6, fallback: RGBA(r: 168, g: 16, b: 0, a: 255)),
-            nesColor(bundle: bundle, index: 22, fallback: RGBA(r: 228, g: 0, b: 88, a: 255)),
+            nesColor(bundle: bundle, index: 38, fallback: RGBA(r: 248, g: 120, b: 88, a: 255)),
             nesColor(bundle: bundle, index: 40, fallback: RGBA(r: 248, g: 184, b: 0, a: 255))
         ]
+    }
+
+    private static func itemExtractedPalette(for itemId: Int, from bundle: PaletteBundle?) -> [RGBA] {
+        switch itemId {
+        case 0x02:
+            return [
+                RGBA(r: 0, g: 0, b: 0, a: 0),
+                nesColor(bundle: bundle, index: 15, fallback: RGBA(r: 0, g: 0, b: 0, a: 255)),
+                nesColor(bundle: bundle, index: 41, fallback: RGBA(r: 184, g: 248, b: 24, a: 255)),
+                nesColor(bundle: bundle, index: 48, fallback: RGBA(r: 252, g: 252, b: 252, a: 255))
+            ]
+        case 0x03:
+            return [
+                RGBA(r: 0, g: 0, b: 0, a: 0),
+                nesColor(bundle: bundle, index: 15, fallback: RGBA(r: 0, g: 0, b: 0, a: 255)),
+                nesColor(bundle: bundle, index: 41, fallback: RGBA(r: 184, g: 248, b: 24, a: 255)),
+                nesColor(bundle: bundle, index: 33, fallback: RGBA(r: 60, g: 188, b: 252, a: 255))
+            ]
+        default:
+            return [
+                RGBA(r: 0, g: 0, b: 0, a: 0),
+                nesColor(bundle: bundle, index: 15, fallback: RGBA(r: 0, g: 0, b: 0, a: 255)),
+                nesColor(bundle: bundle, index: 41, fallback: RGBA(r: 184, g: 248, b: 24, a: 255)),
+                nesColor(bundle: bundle, index: 23, fallback: RGBA(r: 172, g: 124, b: 0, a: 255))
+            ]
+        }
+    }
+
+    private static func caveItemExtractedPalette(for itemId: Int, from bundle: PaletteBundle?) -> [RGBA] {
+        switch itemId {
+        case 0x02:
+            return [
+                RGBA(r: 0, g: 0, b: 0, a: 0),
+                nesColor(bundle: bundle, index: 48, fallback: RGBA(r: 252, g: 252, b: 252, a: 255)),
+                nesColor(bundle: bundle, index: 41, fallback: RGBA(r: 184, g: 248, b: 24, a: 255)),
+                nesColor(bundle: bundle, index: 48, fallback: RGBA(r: 252, g: 252, b: 252, a: 255))
+            ]
+        case 0x03:
+            return [
+                RGBA(r: 0, g: 0, b: 0, a: 0),
+                nesColor(bundle: bundle, index: 48, fallback: RGBA(r: 252, g: 252, b: 252, a: 255)),
+                nesColor(bundle: bundle, index: 41, fallback: RGBA(r: 184, g: 248, b: 24, a: 255)),
+                nesColor(bundle: bundle, index: 33, fallback: RGBA(r: 60, g: 188, b: 252, a: 255))
+            ]
+        default:
+            return [
+                RGBA(r: 0, g: 0, b: 0, a: 0),
+                nesColor(bundle: bundle, index: 48, fallback: RGBA(r: 252, g: 252, b: 252, a: 255)),
+                nesColor(bundle: bundle, index: 41, fallback: RGBA(r: 184, g: 248, b: 24, a: 255)),
+                nesColor(bundle: bundle, index: 24, fallback: RGBA(r: 172, g: 124, b: 0, a: 255))
+            ]
+        }
     }
 
     private static func nesColor(bundle: PaletteBundle?, index: Int, fallback: RGBA) -> RGBA {
@@ -223,21 +309,6 @@ enum CaveContentNodeBuilder {
             b: UInt8(value & 0xFF),
             a: 255
         )
-    }
-
-    private static func texture(from rows: [[UInt8]]) -> SKTexture {
-        let height = rows.count
-        let width = rows.first?.count ?? 0
-        var pixels = Array(repeating: UInt8(0), count: width * height)
-
-        for (y, row) in rows.enumerated() {
-            for (x, slot) in row.enumerated() {
-                let index = ((height - 1 - y) * width) + x
-                pixels[index] = slot
-            }
-        }
-
-        return texture(from: pixels, width: width, height: height, palette: palette)
     }
 
     private static func texture(from pixels: [UInt8], width: Int, height: Int, palette: [RGBA]) -> SKTexture {
@@ -272,6 +343,15 @@ enum CaveContentNodeBuilder {
         return texture
     }
 
+    private static func emptyTexture() -> SKTexture {
+        texture(
+            from: Array(repeating: UInt8(0), count: 16 * 16),
+            width: 16,
+            height: 16,
+            palette: [RGBA(r: 0, g: 0, b: 0, a: 0)]
+        )
+    }
+
     private struct RGBA {
         let r: UInt8
         let g: UInt8
@@ -279,118 +359,6 @@ enum CaveContentNodeBuilder {
         let a: UInt8
     }
 
-    private static let palette: [RGBA] = [
-        RGBA(r: 0, g: 0, b: 0, a: 0),
-        RGBA(r: 0, g: 0, b: 0, a: 255),
-        RGBA(r: 248, g: 200, b: 120, a: 255),
-        RGBA(r: 221, g: 97, b: 13, a: 255),
-        RGBA(r: 176, g: 255, b: 0, a: 255),
-        RGBA(r: 80, g: 170, b: 255, a: 255),
-        RGBA(r: 255, g: 255, b: 255, a: 255),
-        RGBA(r: 146, g: 106, b: 74, a: 255)
-    ]
-
-    private static let oldManPixels: [[UInt8]] = [
-        [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
-        [0,1,1,2,2,2,2,2,2,2,2,2,2,1,1,0],
-        [0,1,2,2,2,2,2,2,2,2,2,2,2,2,1,0],
-        [0,1,2,2,1,2,2,2,2,2,1,2,2,2,1,0],
-        [0,1,2,2,2,2,3,2,2,3,2,2,2,2,1,0],
-        [0,1,2,2,2,2,2,2,2,2,2,2,2,2,1,0],
-        [0,1,2,3,3,3,3,3,3,3,3,3,3,2,1,0],
-        [0,1,2,3,4,4,4,3,3,4,4,4,3,2,1,0],
-        [0,1,2,3,4,4,4,3,3,4,4,4,3,2,1,0],
-        [0,1,2,3,3,3,3,3,3,3,3,3,3,2,1,0],
-        [0,1,2,2,2,3,3,3,3,3,3,2,2,2,1,0],
-        [0,1,2,2,2,3,3,3,3,3,3,2,2,2,1,0],
-        [0,1,2,2,2,3,3,1,1,3,3,2,2,2,1,0],
-        [0,0,1,1,2,3,3,0,0,3,3,2,1,1,0,0],
-        [0,0,0,1,1,3,3,0,0,3,3,1,1,0,0,0],
-        [0,0,0,0,1,1,0,0,0,0,1,1,0,0,0,0]
-    ]
-
-    private static let moblinPixels: [[UInt8]] = [
-        [0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0],
-        [0,1,1,7,7,7,7,2,2,7,7,7,7,1,1,0],
-        [0,1,7,7,1,7,7,2,2,7,7,1,7,7,1,0],
-        [0,1,7,7,7,7,7,2,2,7,7,7,7,7,1,0],
-        [0,1,7,1,7,7,7,2,2,7,7,7,1,7,1,0],
-        [0,1,7,7,7,1,7,2,2,7,1,7,7,7,1,0],
-        [0,1,7,7,7,7,7,7,7,7,7,7,7,7,1,0],
-        [0,1,3,3,3,3,3,7,7,3,3,3,3,3,1,0],
-        [0,1,3,4,4,4,3,7,7,3,4,4,4,3,1,0],
-        [0,1,3,3,3,3,3,7,7,3,3,3,3,3,1,0],
-        [0,1,3,3,3,3,3,7,7,3,3,3,3,3,1,0],
-        [0,1,3,3,1,3,3,7,7,3,3,1,3,3,1,0],
-        [0,0,1,3,3,3,3,1,1,3,3,3,3,1,0,0],
-        [0,0,1,1,3,3,1,0,0,1,3,3,1,1,0,0],
-        [0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0],
-        [0,0,0,0,1,1,0,0,0,0,1,1,0,0,0,0]
-    ]
-
-    private static let woodenSwordPixels: [[UInt8]] = [
-        [0,0,0,0,0,0,6,6,6,6,0,0,0,0,0,0],
-        [0,0,0,0,0,0,6,5,5,6,0,0,0,0,0,0],
-        [0,0,0,0,0,0,6,5,5,6,0,0,0,0,0,0],
-        [0,0,0,0,0,0,6,5,5,6,0,0,0,0,0,0],
-        [0,0,0,0,0,0,6,5,5,6,0,0,0,0,0,0],
-        [0,0,0,0,0,0,6,5,5,6,0,0,0,0,0,0],
-        [0,0,0,0,0,0,6,5,5,6,0,0,0,0,0,0],
-        [0,0,0,0,0,6,6,5,5,6,6,0,0,0,0,0],
-        [0,0,0,0,0,6,3,3,3,3,6,0,0,0,0,0],
-        [0,0,0,0,0,0,6,3,3,6,0,0,0,0,0,0],
-        [0,0,0,0,0,0,6,3,3,6,0,0,0,0,0,0],
-        [0,0,0,0,0,0,6,7,7,6,0,0,0,0,0,0],
-        [0,0,0,0,0,0,6,7,7,6,0,0,0,0,0,0],
-        [0,0,0,0,0,0,6,7,7,6,0,0,0,0,0,0],
-        [0,0,0,0,0,0,1,7,7,1,0,0,0,0,0,0],
-        [0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0]
-    ]
-
-    private static let whiteSwordPixels = woodenSwordPixels.map { row in
-        row.map { $0 == 5 ? UInt8(6) : $0 }
-    }
-
-    private static let magicSwordPixels = woodenSwordPixels.map { row in
-        row.map { $0 == 5 ? UInt8(5) : ($0 == 3 ? UInt8(6) : $0) }
-    }
-
-    private static let genericItemPixels: [[UInt8]] = [
-        [0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0],
-        [0,0,0,1,2,2,2,2,2,2,2,2,1,0,0,0],
-        [0,0,1,2,2,2,2,2,2,2,2,2,2,1,0,0],
-        [0,1,2,2,2,2,2,2,2,2,2,2,2,2,1,0],
-        [0,1,2,2,2,2,2,2,2,2,2,2,2,2,1,0],
-        [0,1,2,2,2,2,2,2,2,2,2,2,2,2,1,0],
-        [0,1,2,2,2,2,2,2,2,2,2,2,2,2,1,0],
-        [0,1,2,2,2,2,2,3,3,2,2,2,2,2,1,0],
-        [0,1,2,2,2,2,3,3,3,3,2,2,2,2,1,0],
-        [0,1,2,2,2,2,2,3,3,2,2,2,2,2,1,0],
-        [0,1,2,2,2,2,2,2,2,2,2,2,2,2,1,0],
-        [0,1,2,2,2,2,2,2,2,2,2,2,2,2,1,0],
-        [0,0,1,2,2,2,2,2,2,2,2,2,2,1,0,0],
-        [0,0,0,1,2,2,2,2,2,2,2,2,1,0,0,0],
-        [0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0],
-        [0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0]
-    ]
-
-    private static let flamePixels: [[UInt8]] = [
-        [0,0,0,0,0,0,3,3,3,3,0,0,0,0,0,0],
-        [0,0,0,0,0,3,2,2,2,2,3,0,0,0,0,0],
-        [0,0,0,0,3,2,6,2,2,6,2,3,0,0,0,0],
-        [0,0,0,0,3,2,2,3,3,2,2,3,0,0,0,0],
-        [0,0,0,0,0,3,2,2,2,2,3,0,0,0,0,0],
-        [0,0,0,0,0,0,3,2,2,3,0,0,0,0,0,0],
-        [0,0,0,0,0,0,0,3,3,0,0,0,0,0,0,0],
-        [0,0,0,0,0,0,0,7,7,0,0,0,0,0,0,0],
-        [0,0,0,0,0,0,7,7,7,7,0,0,0,0,0,0],
-        [0,0,0,0,0,7,7,1,1,7,7,0,0,0,0,0],
-        [0,0,0,0,7,7,1,1,1,1,7,7,0,0,0,0],
-        [0,0,0,0,7,7,1,1,1,1,7,7,0,0,0,0],
-        [0,0,0,0,7,7,1,1,1,1,7,7,0,0,0,0],
-        [0,0,0,0,7,7,7,7,7,7,7,7,0,0,0,0],
-        [0,0,0,0,0,7,7,7,7,7,7,0,0,0,0,0],
-        [0,0,0,0,0,0,7,7,7,7,0,0,0,0,0,0]
-    ]
+    private static let swordCaveItemNesY = 0x9C
 
 }

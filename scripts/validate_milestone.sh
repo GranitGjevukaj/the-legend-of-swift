@@ -7,7 +7,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "${REPO_ROOT}"
 
 swift test
-swift run zelda-extract --output Content/Zelda
+scripts/extract_zelda.sh
 
 required=(
   overworld.json

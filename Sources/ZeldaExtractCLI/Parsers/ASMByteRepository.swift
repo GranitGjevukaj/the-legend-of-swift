@@ -60,7 +60,7 @@ struct ASMByteRepository {
         }
 
         for line in lines {
-            let stripped = stripComment(from: line).trimmingCharacters(in: .whitespaces)
+            let stripped = stripComment(from: line).trimmingCharacters(in: .whitespacesAndNewlines)
             guard !stripped.isEmpty else { continue }
 
             if let (label, remainder) = parseLabelLine(stripped) {
@@ -95,8 +95,8 @@ struct ASMByteRepository {
     private func parseLabelLine(_ line: String) -> (String, String)? {
         guard let colon = line.firstIndex(of: ":") else { return nil }
 
-        let left = String(line[..<colon]).trimmingCharacters(in: .whitespaces)
-        let right = String(line[line.index(after: colon)...]).trimmingCharacters(in: .whitespaces)
+        let left = String(line[..<colon]).trimmingCharacters(in: .whitespacesAndNewlines)
+        let right = String(line[line.index(after: colon)...]).trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !left.isEmpty else { return nil }
         guard left.range(of: #"^[A-Za-z_\.][A-Za-z0-9_\.]*$"#, options: .regularExpression) != nil else {
@@ -107,7 +107,7 @@ struct ASMByteRepository {
     }
 
     private func parseDirectiveBytes(from line: String, relativeTo fileURL: URL) -> [UInt8]? {
-        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
         let lowered = trimmed.lowercased()
 
         let directive: String
@@ -146,7 +146,7 @@ struct ASMByteRepository {
             }
 
             if character == ",", !inQuotes {
-                tokens.append(buffer.trimmingCharacters(in: .whitespaces))
+                tokens.append(buffer.trimmingCharacters(in: .whitespacesAndNewlines))
                 buffer = ""
                 continue
             }
@@ -154,15 +154,15 @@ struct ASMByteRepository {
             buffer.append(character)
         }
 
-        if !buffer.trimmingCharacters(in: .whitespaces).isEmpty {
-            tokens.append(buffer.trimmingCharacters(in: .whitespaces))
+        if !buffer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            tokens.append(buffer.trimmingCharacters(in: .whitespacesAndNewlines))
         }
 
         return tokens
     }
 
     private func parseTokenBytes(_ token: String) -> [UInt8] {
-        let trimmed = token.trimmingCharacters(in: .whitespaces)
+        let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return [] }
 
         if trimmed.hasPrefix("\""), trimmed.hasSuffix("\""), trimmed.count >= 2 {
@@ -199,15 +199,15 @@ struct ASMByteRepository {
         }
 
         let remainder = payload[payload.index(after: secondQuote)...]
-            .trimmingCharacters(in: .whitespaces)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
             .trimmingCharacters(in: CharacterSet(charactersIn: ","))
-            .trimmingCharacters(in: .whitespaces)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !remainder.isEmpty else {
             return [UInt8](data)
         }
 
-        let params = remainder.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+        let params = remainder.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
         let offset = params.first.flatMap(parseIntegerToken) ?? 0
         let size = params.dropFirst().first.flatMap(parseIntegerToken)
 
@@ -228,11 +228,14 @@ struct ASMByteRepository {
         }
 
         var candidates: [URL] = [localCandidate]
+        var sourceRootForBins: URL?
 
         if let sourceRoot = nearestDirectory(containing: "bins.xml", startingAt: baseDirectory) {
+            sourceRootForBins = sourceRoot
             candidates.append(sourceRoot.appendingPathComponent(relativePath))
 
             let projectRoot = sourceRoot.deletingLastPathComponent()
+            candidates.append(projectRoot.appendingPathComponent(relativePath))
             candidates.append(projectRoot.appendingPathComponent("bin").appendingPathComponent(relativePath))
             candidates.append(projectRoot.appendingPathComponent("src").appendingPathComponent(relativePath))
         }
@@ -245,7 +248,95 @@ struct ASMByteRepository {
             }
         }
 
+        if let sourceRootForBins,
+           let data = extractFromOriginalRom(relativePath: relativePath, sourceRoot: sourceRootForBins) {
+            return data
+        }
+
         return nil
+    }
+
+    private func extractFromOriginalRom(relativePath: String, sourceRoot: URL) -> Data? {
+        let binsPath = sourceRoot.appendingPathComponent("bins.xml")
+        guard let binsXML = try? String(contentsOf: binsPath, encoding: .utf8) else {
+            return nil
+        }
+
+        guard let binEntry = findBinaryEntry(for: relativePath, in: binsXML) else {
+            return nil
+        }
+
+        for romURL in originalROMCandidates(sourceRoot: sourceRoot) {
+            guard FileManager.default.fileExists(atPath: romURL.path()),
+                  let rom = try? Data(contentsOf: romURL)
+            else {
+                continue
+            }
+
+            let start = binEntry.offset + 16
+            let end = start + binEntry.length
+            guard start >= 0, end <= rom.count, start < end else {
+                continue
+            }
+
+            return rom.subdata(in: start..<end)
+        }
+
+        return nil
+    }
+
+    private func originalROMCandidates(sourceRoot: URL) -> [URL] {
+        var urls: [URL] = []
+
+        if let envPath = ProcessInfo.processInfo.environment["ZELDA_ORIGINAL_ROM"], !envPath.isEmpty {
+            urls.append(URL(fileURLWithPath: envPath))
+        }
+
+        let projectRoot = sourceRoot.deletingLastPathComponent()
+        urls.append(projectRoot.appendingPathComponent("ext/Original.nes"))
+        urls.append(projectRoot.appendingPathComponent("Original.nes"))
+        urls.append(sourceRoot.appendingPathComponent("Original.nes"))
+
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        urls.append(home.appendingPathComponent("Downloads/Original.nes"))
+        urls.append(home.appendingPathComponent("Desktop/Original.nes"))
+
+        var seen = Set<String>()
+        return urls.filter { seen.insert($0.path()).inserted }
+    }
+
+    private func findBinaryEntry(for relativePath: String, in binsXML: String) -> BinaryEntry? {
+        let pattern = #"<Binary\s+Offset='(\d+)'\s+Length='(\d+)'\s+FileName='([^']+)'\s*/?>"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else {
+            return nil
+        }
+
+        let fullRange = NSRange(binsXML.startIndex..<binsXML.endIndex, in: binsXML)
+        for match in regex.matches(in: binsXML, range: fullRange) {
+            guard match.numberOfRanges == 4 else { continue }
+
+            guard
+                let offsetRange = Range(match.range(at: 1), in: binsXML),
+                let lengthRange = Range(match.range(at: 2), in: binsXML),
+                let fileNameRange = Range(match.range(at: 3), in: binsXML),
+                let offset = Int(binsXML[offsetRange]),
+                let length = Int(binsXML[lengthRange])
+            else {
+                continue
+            }
+
+            let fileName = String(binsXML[fileNameRange])
+            if fileName == relativePath {
+                return BinaryEntry(offset: offset, length: length)
+            }
+        }
+
+        return nil
+    }
+
+    private struct BinaryEntry {
+        let offset: Int
+        let length: Int
     }
 
     private func nearestDirectory(containing fileName: String, startingAt directory: URL) -> URL? {
@@ -277,7 +368,7 @@ struct ASMByteRepository {
     }
 
     private func parseIntegerToken(_ token: String) -> Int? {
-        var value = token.trimmingCharacters(in: .whitespaces)
+        var value = token.trimmingCharacters(in: .whitespacesAndNewlines)
         while value.hasPrefix("#") || value.hasPrefix("<") || value.hasPrefix(">") {
             value.removeFirst()
         }

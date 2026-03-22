@@ -11,7 +11,7 @@ final class ZeldaCoreTests: XCTestCase {
         XCTAssertEqual(state.link.position, Position(x: 120, y: 88))
         XCTAssertEqual(state.inventory.swordLevel, 0)
         XCTAssertFalse(state.inventory.unlockedItems.contains(.woodenSword))
-        XCTAssertEqual(state.phase, .playing)
+        XCTAssertEqual(state.phase, GamePhase.playing)
     }
 
     func testMovementUpdatesLinkPosition() {
@@ -30,33 +30,120 @@ final class ZeldaCoreTests: XCTestCase {
         state.startNewGame(slot: 0)
 
         _ = state.tick(input: InputState(start: true))
-        XCTAssertEqual(state.phase, .paused)
+        XCTAssertEqual(state.phase, GamePhase.paused)
 
         _ = state.tick(input: InputState(start: true))
-        XCTAssertEqual(state.phase, .playing)
+        XCTAssertEqual(state.phase, GamePhase.playing)
     }
 
     func testScrollTransitionCompletes() {
-        var state = GameState()
-        state.startNewGame(slot: 0)
+        let origin = ScreenCoordinate(column: 7, row: 3)
+        let destination = ScreenCoordinate(column: 8, row: 3)
+        let overworld = testOverworld(
+            rooms: [
+                origin: testRoom(coordinate: origin),
+                destination: testRoom(coordinate: destination)
+            ],
+            enemySpawns: [
+                origin: [Enemy(kind: .octorok, position: Position(x: 96, y: 88))],
+                destination: [Enemy(kind: .octorok, position: Position(x: 112, y: 88))]
+            ],
+            roomConnections: [
+                origin: [.right],
+                destination: [.left]
+            ]
+        )
 
-        var safety = 0
-        while state.phase == .playing && safety < 200 {
-            _ = state.tick(input: InputState(direction: .right))
-            safety += 1
+        var state = GameState(
+            overworld: overworld,
+            currentScreen: origin,
+            link: Link(position: Position(x: Room.pixelWidth - 17, y: 88), facing: .right, hearts: 3, maxHearts: 3, speed: 2),
+            inventory: .starter,
+            phase: GamePhase.playing
+        )
+
+        let firstTickEvents = state.tick(input: InputState(direction: .right))
+        XCTAssertTrue(firstTickEvents.isEmpty)
+        XCTAssertEqual(state.phase, GamePhase.scrolling(ScrollTransition(direction: .right, origin: origin, destination: destination)))
+
+        for _ in 0..<16 {
+            _ = state.tick(input: InputState.idle)
         }
 
-        guard case .scrolling = state.phase else {
-            XCTFail("Expected to enter scrolling state")
-            return
-        }
+        XCTAssertEqual(state.phase, GamePhase.playing)
+        XCTAssertEqual(state.currentScreen, destination)
+    }
 
-        for _ in 0..<20 {
-            _ = state.tick(input: .idle)
-        }
+    func testScrollTransitionDoesNotStartWithOneWayRoomConnection() {
+        let origin = ScreenCoordinate(column: 7, row: 3)
+        let destination = ScreenCoordinate(column: 8, row: 3)
+        let overworld = testOverworld(
+            rooms: [
+                origin: testRoom(coordinate: origin),
+                destination: testRoom(coordinate: destination)
+            ],
+            roomConnections: [
+                origin: [.right]
+            ]
+        )
 
-        XCTAssertEqual(state.phase, .playing)
-        XCTAssertEqual(state.currentScreen, ScreenCoordinate(column: 8, row: 3))
+        var state = GameState(
+            overworld: overworld,
+            currentScreen: origin,
+            link: Link(position: Position(x: Room.pixelWidth - 17, y: 88), facing: .right, hearts: 3, maxHearts: 3, speed: 2),
+            inventory: .starter,
+            phase: GamePhase.playing
+        )
+
+        _ = state.tick(input: InputState(direction: .right))
+
+        XCTAssertEqual(state.phase, GamePhase.playing)
+        XCTAssertEqual(state.currentScreen, origin)
+    }
+
+    func testScrollTransitionDoesNotStartWithoutDestinationRoom() {
+        let origin = ScreenCoordinate(column: 7, row: 3)
+        let overworld = testOverworld(
+            rooms: [
+                origin: testRoom(coordinate: origin)
+            ]
+        )
+
+        var state = GameState(
+            overworld: overworld,
+            currentScreen: origin,
+            link: Link(position: Position(x: Room.pixelWidth - 17, y: 88), facing: .right, hearts: 3, maxHearts: 3, speed: 2),
+            inventory: .starter,
+            phase: GamePhase.playing
+        )
+
+        _ = state.tick(input: InputState(direction: .right))
+
+        XCTAssertEqual(state.phase, GamePhase.playing)
+        XCTAssertEqual(state.currentScreen, origin)
+    }
+
+    func testScrollTransitionDoesNotStartWithoutOriginRoomAtBoundary() {
+        let origin = ScreenCoordinate(column: 0, row: 3)
+        let eastNeighbor = ScreenCoordinate(column: 1, row: 3)
+        let overworld = testOverworld(
+            rooms: [
+                eastNeighbor: testRoom(coordinate: eastNeighbor)
+            ]
+        )
+
+        var state = GameState(
+            overworld: overworld,
+            currentScreen: origin,
+            link: Link(position: Position(x: 17, y: 88), facing: .left, hearts: 3, maxHearts: 3, speed: 2),
+            inventory: .starter,
+            phase: GamePhase.playing
+        )
+
+        _ = state.tick(input: InputState(direction: .left))
+
+        XCTAssertEqual(state.phase, GamePhase.playing)
+        XCTAssertEqual(state.currentScreen, origin)
     }
 
     func testWalkingIntoCaveEntranceEntersCave() {
@@ -72,7 +159,7 @@ final class ZeldaCoreTests: XCTestCase {
             currentScreen: coordinate,
             link: Link(position: Position(x: 120, y: 34), facing: .up, hearts: 3, maxHearts: 3, speed: 2),
             inventory: .starter,
-            phase: .playing
+            phase: GamePhase.playing
         )
 
         let events = state.tick(input: InputState(direction: .up))
@@ -99,7 +186,7 @@ final class ZeldaCoreTests: XCTestCase {
             cave: cave,
             link: Link(position: Position(x: 120, y: Room.pixelHeight - 26), facing: .down, hearts: 3, maxHearts: 3, speed: 2),
             inventory: .starter,
-            phase: .playing
+            phase: GamePhase.playing
         )
 
         let events = state.tick(input: InputState(direction: .down))
@@ -127,7 +214,7 @@ final class ZeldaCoreTests: XCTestCase {
             cave: cave,
             link: Link(position: Position(x: 120, y: 86), facing: .down, hearts: 3, maxHearts: 3, speed: 2),
             inventory: .starter,
-            phase: .playing
+            phase: GamePhase.playing
         )
 
         let events = state.tick(input: InputState(direction: .down))
@@ -138,19 +225,109 @@ final class ZeldaCoreTests: XCTestCase {
         XCTAssertEqual(state.currentRoomFlags & 0x10, 0x10)
     }
 
-    private func testOverworld(
-        coordinate: ScreenCoordinate,
-        caveEntrances: [ScreenCoordinate: [CaveEntrance]] = [:]
-    ) -> Overworld {
+    func testPressingAStartsSwordSwingWhenSwordIsOwned() {
+        let coordinate = ScreenCoordinate(column: 4, row: 4)
         let room = Room(
             coordinate: coordinate,
             collisionMask: Array(repeating: true, count: Room.columns * Room.rows)
         )
+        let overworld = testOverworld(rooms: [coordinate: room])
+        let inventory = Inventory(
+            rupees: 0,
+            bombs: 0,
+            keys: 0,
+            swordLevel: 1,
+            unlockedItems: [.woodenSword]
+        )
 
-        return Overworld(
-            rooms: [coordinate: room],
+        var state = GameState(
+            overworld: overworld,
+            currentScreen: coordinate,
+            link: Link(position: Position(x: 120, y: 120), facing: .up, hearts: 3, maxHearts: 3, speed: 2),
+            inventory: inventory,
+            phase: .playing
+        )
+
+        _ = state.tick(input: InputState(buttonA: true))
+
+        XCTAssertTrue(state.isSwordSwinging)
+        XCTAssertEqual(state.swordSwingDirection, .up)
+        XCTAssertGreaterThan(state.swordSwingTicksRemaining, 0)
+    }
+
+    func testSwordDamagesEnemyOncePerSwingAndCanStrikeAgainAfterCooldown() {
+        let coordinate = ScreenCoordinate(column: 4, row: 4)
+        let room = Room(
+            coordinate: coordinate,
+            collisionMask: Array(repeating: false, count: Room.columns * Room.rows)
+        )
+        let overworld = testOverworld(rooms: [coordinate: room])
+        let inventory = Inventory(
+            rupees: 0,
+            bombs: 0,
+            keys: 0,
+            swordLevel: 1,
+            unlockedItems: [.woodenSword]
+        )
+        let enemy = Enemy(kind: .octorok, position: Position(x: 120, y: 104), hitPoints: 2, contactDamage: 1)
+
+        var state = GameState(
+            overworld: overworld,
+            currentScreen: coordinate,
+            link: Link(position: Position(x: 120, y: 120), facing: .up, hearts: 3, maxHearts: 3, speed: 2),
+            enemies: [enemy],
+            inventory: inventory,
+            phase: .playing
+        )
+
+        _ = state.tick(input: InputState(buttonA: true))
+        XCTAssertEqual(state.enemies.count, 1)
+        XCTAssertEqual(state.enemies[0].hitPoints, 1)
+
+        for _ in 0..<4 {
+            _ = state.tick(input: .idle)
+        }
+        XCTAssertEqual(state.enemies.count, 1)
+        XCTAssertEqual(state.enemies[0].hitPoints, 1)
+
+        for _ in 0..<12 {
+            _ = state.tick(input: .idle)
+        }
+
+        let events = state.tick(input: InputState(buttonA: true))
+        XCTAssertTrue(events.contains(.enemyDefeated(.octorok)))
+        XCTAssertTrue(state.enemies.isEmpty)
+    }
+
+    private func testOverworld(
+        coordinate: ScreenCoordinate,
+        caveEntrances: [ScreenCoordinate: [CaveEntrance]] = [:]
+    ) -> Overworld {
+        testOverworld(
+            rooms: [coordinate: testRoom(coordinate: coordinate)],
             enemySpawns: [coordinate: [Enemy(kind: .octorok, position: Position(x: 96, y: 88))]],
             caveEntrances: caveEntrances
+        )
+    }
+
+    private func testOverworld(
+        rooms: [ScreenCoordinate: Room],
+        enemySpawns: [ScreenCoordinate: [Enemy]] = [:],
+        caveEntrances: [ScreenCoordinate: [CaveEntrance]] = [:],
+        roomConnections: [ScreenCoordinate: Set<Direction>] = [:]
+    ) -> Overworld {
+        Overworld(
+            rooms: rooms,
+            enemySpawns: enemySpawns,
+            caveEntrances: caveEntrances,
+            roomConnections: roomConnections
+        )
+    }
+
+    private func testRoom(coordinate: ScreenCoordinate) -> Room {
+        Room(
+            coordinate: coordinate,
+            collisionMask: Array(repeating: true, count: Room.columns * Room.rows)
         )
     }
 }

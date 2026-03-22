@@ -4,6 +4,14 @@ import ZeldaCore
 @testable import ZeldaUI
 
 final class ZeldaUITests: XCTestCase {
+    @MainActor
+    func testHUDSwordKindMappingMatchesInventoryLevel() {
+        XCTAssertNil(HUDView.swordKind(for: 0))
+        XCTAssertEqual(HUDView.swordKind(for: 1), .woodenSword)
+        XCTAssertEqual(HUDView.swordKind(for: 2), .whiteSword)
+        XCTAssertEqual(HUDView.swordKind(for: 3), .magicSword)
+    }
+
     func testOverworldBuilderSkipsPricedCaveItems() {
         let coordinate = ScreenCoordinate(column: 0, row: 0)
         let screen = OverworldScreen(
@@ -54,6 +62,63 @@ final class ZeldaUITests: XCTestCase {
 
         let overworld = OverworldContentBuilder.build(from: data)
         XCTAssertTrue(overworld.defaultEnemies(at: coordinate).isEmpty)
+    }
+
+    func testOverworldBuilderMapsCardinalExitNamesToLinkedRooms() {
+        let top = OverworldScreen(
+            id: "OW_02_03",
+            column: 2,
+            row: 3,
+            metatileGrid: Array(repeating: 0, count: Room.columns * Room.rows),
+            exits: ["south"]
+        )
+        let bottom = OverworldScreen(
+            id: "OW_02_04",
+            column: 2,
+            row: 4,
+            metatileGrid: Array(repeating: 0, count: Room.columns * Room.rows),
+            exits: ["north"]
+        )
+
+        let data = OverworldData(width: 16, height: 8, screens: [top, bottom])
+        let overworld = OverworldContentBuilder.build(from: data)
+
+        let topCoordinate = ScreenCoordinate(column: 2, row: 3)
+        let bottomCoordinate = ScreenCoordinate(column: 2, row: 4)
+
+        XCTAssertEqual(
+            overworld.linkedDestination(from: topCoordinate, direction: .down),
+            bottomCoordinate
+        )
+        XCTAssertEqual(
+            overworld.linkedDestination(from: bottomCoordinate, direction: .up),
+            topCoordinate
+        )
+    }
+
+    func testOverworldBuilderDoesNotWrapRoomLinksAcrossMapEdges() {
+        let leftEdge = OverworldScreen(
+            id: "OW_00_03",
+            column: 0,
+            row: 3,
+            metatileGrid: Array(repeating: 0, count: Room.columns * Room.rows),
+            exits: ["west"]
+        )
+        let rightEdge = OverworldScreen(
+            id: "OW_15_03",
+            column: 15,
+            row: 3,
+            metatileGrid: Array(repeating: 0, count: Room.columns * Room.rows),
+            exits: ["east"]
+        )
+
+        let data = OverworldData(width: 16, height: 8, screens: [leftEdge, rightEdge])
+        let overworld = OverworldContentBuilder.build(from: data)
+        let leftCoordinate = ScreenCoordinate(column: 0, row: 3)
+        let rightCoordinate = ScreenCoordinate(column: 15, row: 3)
+
+        XCTAssertNil(overworld.linkedDestination(from: leftCoordinate, direction: .left))
+        XCTAssertNil(overworld.linkedDestination(from: rightCoordinate, direction: .right))
     }
 
     @MainActor

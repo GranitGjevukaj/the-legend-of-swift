@@ -72,6 +72,10 @@ public struct GameState: Sendable {
     public private(set) var projectiles: [Projectile]
     public private(set) var inventory: Inventory
     public private(set) var phase: GamePhase
+    public private(set) var swordSwingTicksRemaining: Int
+    public private(set) var swordSwingDirection: Direction?
+    private var swordAttackCooldownTicks: Int
+    private var wasButtonAHeld: Bool
 
     public init(
         slot: Int = 0,
@@ -93,6 +97,30 @@ public struct GameState: Sendable {
         self.projectiles = projectiles
         self.inventory = inventory
         self.phase = phase
+        self.swordSwingTicksRemaining = 0
+        self.swordSwingDirection = nil
+        self.swordAttackCooldownTicks = 0
+        self.wasButtonAHeld = false
+    }
+
+    public var isSwordSwinging: Bool {
+        swordSwingTicksRemaining > 0 && swordSwingDirection != nil
+    }
+
+    public var swordSwingFrame: Int {
+        guard swordSwingTicksRemaining > 0 else {
+            return 0
+        }
+
+        let elapsed = Self.swordSwingDurationTicks - swordSwingTicksRemaining
+        switch elapsed {
+        case 0...1:
+            return 0
+        case 2...5:
+            return 1
+        default:
+            return 2
+        }
     }
 
     public mutating func startNewGame(slot: Int) {
@@ -112,6 +140,8 @@ public struct GameState: Sendable {
         projectiles = []
         inventory = .starter
         phase = .playing
+        clearSwordCombatState()
+        wasButtonAHeld = false
         loadEnemiesForCurrentScreen()
     }
 
@@ -122,16 +152,19 @@ public struct GameState: Sendable {
             if input.start {
                 phase = .fileSelect
             }
+            wasButtonAHeld = input.buttonA
             return []
         case .fileSelect:
             if input.start {
                 startNewGame(slot: slot)
             }
+            wasButtonAHeld = input.buttonA
             return []
         case .paused, .dead:
             if input.start {
                 phase = .playing
             }
+            wasButtonAHeld = input.buttonA
             return []
         case .scrolling(var transition):
             transition.advanceFrame()
@@ -139,9 +172,11 @@ public struct GameState: Sendable {
                 currentScreen = transition.destination
                 phase = .playing
                 loadEnemiesForCurrentScreen()
+                wasButtonAHeld = input.buttonA
                 return [.enteredScreen(currentScreen)]
             }
             phase = .scrolling(transition)
+            wasButtonAHeld = input.buttonA
             return []
         case .playing:
             return tickPlaying(input: input)
@@ -161,7 +196,14 @@ public struct GameState: Sendable {
 
         if input.start {
             phase = .paused
+            clearSwordCombatState()
+            wasButtonAHeld = input.buttonA
             return events
+        }
+
+        advanceSwordSwing()
+        if swordAttackCooldownTicks > 0 {
+            swordAttackCooldownTicks -= 1
         }
 
         if let direction = input.direction {
@@ -206,11 +248,15 @@ public struct GameState: Sendable {
             }
         }
 
-        if input.buttonA {
-            if let defeatedEnemy = resolveSwordHit() {
+        if shouldStartSwordSwing(input: input) {
+            startSwordSwing()
+            let direction = swordSwingDirection ?? link.facing
+            if let defeatedEnemy = resolveSwordHit(direction: direction) {
                 events.append(.enemyDefeated(defeatedEnemy))
             }
         }
+
+        wasButtonAHeld = input.buttonA
 
         tickProjectiles()
         tickEnemies()
@@ -223,8 +269,10 @@ public struct GameState: Sendable {
     }
 
     private mutating func startScroll(direction: Direction) {
-        let destination = currentScreen.moved(direction: direction)
-        guard overworld.room(at: destination) != nil else { return }
+        guard let destination = overworld.linkedDestination(from: currentScreen, direction: direction) else {
+            return
+        }
+        clearSwordCombatState()
         phase = .scrolling(ScrollTransition(direction: direction, origin: currentScreen, destination: destination))
     }
 
@@ -241,8 +289,8 @@ public struct GameState: Sendable {
         }
     }
 
-    private mutating func resolveSwordHit() -> Enemy.Kind? {
-        let swordRange = link.swordHitbox
+    private mutating func resolveSwordHit(direction: Direction) -> Enemy.Kind? {
+        let swordRange = link.swordHitbox(facing: direction)
         for (index, enemy) in enemies.enumerated() where HitDetection.overlaps(a: swordRange, b: enemy.hitbox) {
             let damage = DamageTable.default.damage(weapon: .sword(level: inventory.swordLevel), against: enemy.kind)
             var mutableEnemy = enemy
@@ -283,6 +331,7 @@ public struct GameState: Sendable {
             events.append(.tookDamage(amount: enemy.contactDamage))
             if link.hearts == 0 {
                 phase = .dead
+                clearSwordCombatState()
             }
             break
         }
@@ -297,6 +346,7 @@ public struct GameState: Sendable {
     }
 
     private mutating func enterCave(_ entrance: CaveEntrance) {
+        clearSwordCombatState()
         cave = CaveState(parentScreen: currentScreen, entrance: entrance)
         link.position = CaveState.spawnPosition
         link.facing = .up
@@ -304,6 +354,7 @@ public struct GameState: Sendable {
     }
 
     private mutating func exitCave(_ cave: CaveState) {
+        clearSwordCombatState()
         self.cave = nil
         link.position = cave.entrance.exteriorSpawnPosition
         link.facing = .down
@@ -330,6 +381,45 @@ public struct GameState: Sendable {
             inventory.unlockedItems.insert(pickup.kind)
         }
     }
+
+    private mutating func clearSwordCombatState() {
+        swordSwingTicksRemaining = 0
+        swordSwingDirection = nil
+        swordAttackCooldownTicks = 0
+    }
+
+    private mutating func advanceSwordSwing() {
+        guard swordSwingTicksRemaining > 0 else {
+            swordSwingDirection = nil
+            return
+        }
+
+        swordSwingTicksRemaining -= 1
+        if swordSwingTicksRemaining == 0 {
+            swordSwingDirection = nil
+        }
+    }
+
+    private func shouldStartSwordSwing(input: InputState) -> Bool {
+        guard input.buttonA, !wasButtonAHeld else {
+            return false
+        }
+
+        guard inventory.swordLevel > 0 else {
+            return false
+        }
+
+        return swordSwingTicksRemaining == 0 && swordAttackCooldownTicks == 0
+    }
+
+    private mutating func startSwordSwing() {
+        swordSwingTicksRemaining = Self.swordSwingDurationTicks
+        swordSwingDirection = link.facing
+        swordAttackCooldownTicks = Self.swordSwingCooldownTicks
+    }
+
+    private static let swordSwingDurationTicks = 8
+    private static let swordSwingCooldownTicks = 10
 }
 
 extension ScreenCoordinate {

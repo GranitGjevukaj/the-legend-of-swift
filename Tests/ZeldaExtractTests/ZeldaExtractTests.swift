@@ -322,13 +322,26 @@ final class ZeldaExtractTests: XCTestCase {
 
         let linkSpriteData = try Data(contentsOf: outputDir.appendingPathComponent("sprites/link_src.json"))
         let linkSheet = try decoder.decode(SpriteSheet.self, from: linkSpriteData)
-        XCTAssertEqual(linkSheet.frames.map(\.id), ["horizontal_0", "horizontal_1", "down", "up"])
+        XCTAssertEqual(
+            linkSheet.frames.map(\.id),
+            [
+                "horizontal_0",
+                "horizontal_1",
+                "down",
+                "up",
+                "horizontal_attack_0",
+                "horizontal_attack_1",
+                "down_attack",
+                "up_attack"
+            ]
+        )
         XCTAssertTrue(linkSheet.frames.allSatisfy { $0.pixels?.count == 256 })
 
         let caveSpriteData = try Data(contentsOf: outputDir.appendingPathComponent("sprites/cave_src.json"))
         let caveSheet = try decoder.decode(SpriteSheet.self, from: caveSpriteData)
         XCTAssertTrue(caveSheet.frames.contains(where: { $0.id == "person_6a" && $0.pixels?.count == 256 }))
         XCTAssertTrue(caveSheet.frames.contains(where: { $0.id == "standing_fire" && $0.pixels?.count == 256 }))
+        XCTAssertTrue(caveSheet.frames.contains(where: { $0.id == "item_01" && $0.pixels?.count == 256 }))
     }
 
     func testIncbinResolvesFromSiblingBinDirectory() throws {

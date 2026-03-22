@@ -67,24 +67,136 @@ struct SpriteParser {
             return nil
         }
 
-        let frameIDs = [
-            ("horizontal_0", linkAnimationBase + 0),
-            ("horizontal_1", linkAnimationBase + 1),
-            ("down", linkAnimationBase + 2),
-            ("up", linkAnimationBase + 3)
-        ]
-
-        let frames = frameIDs.compactMap { id, frameOffset -> SpriteSheet.SpriteFrame? in
-            guard objAnimFrameHeap.indices.contains(frameOffset) else {
+        func leftTile(at offset: Int) -> Int? {
+            guard objAnimFrameHeap.indices.contains(offset) else {
                 return nil
             }
-
-            let leftSpriteTile = Int(objAnimFrameHeap[frameOffset])
-            let pixels = composeFrame(leftSpriteTile: leftSpriteTile, spriteCHR: spriteCHR, mirrored: false)
-            return SpriteSheet.SpriteFrame(id: id, width: 16, height: 16, pixels: pixels)
+            return Int(objAnimFrameHeap[offset])
         }
 
-        return frames.count == frameIDs.count ? frames : nil
+        guard
+            let horizontal0Tile = leftTile(at: linkAnimationBase + 0),
+            let horizontal1Tile = leftTile(at: linkAnimationBase + 1),
+            let downTile = leftTile(at: linkAnimationBase + 2),
+            let upTile = leftTile(at: linkAnimationBase + 3),
+            let horizontalAttack0Tile = leftTile(at: linkAnimationBase + 4),
+            let horizontalAttack1Tile = leftTile(at: linkAnimationBase + 5),
+            let downAttackTile = leftTile(at: linkAnimationBase + 6),
+            let upAttackTile = leftTile(at: linkAnimationBase + 7)
+        else {
+            return nil
+        }
+
+        // Zelda patches Link's down-facing frame to shield tiles (58/5A)
+        // when rendering the regular (non-magic) shield.
+        let downShieldTileOffset = 0x50
+
+        let frames: [SpriteSheet.SpriteFrame] = [
+            SpriteSheet.SpriteFrame(
+                id: "horizontal_0",
+                width: 16,
+                height: 16,
+                pixels: composeFrame(
+                    leftSpriteTile: horizontal0Tile,
+                    rightSpriteTile: horizontal0Tile + 2,
+                    spriteCHR: spriteCHR
+                )
+            ),
+            SpriteSheet.SpriteFrame(
+                id: "horizontal_1",
+                width: 16,
+                height: 16,
+                pixels: composeFrame(
+                    leftSpriteTile: horizontal1Tile,
+                    rightSpriteTile: horizontal1Tile + 2,
+                    spriteCHR: spriteCHR
+                )
+            ),
+            SpriteSheet.SpriteFrame(
+                id: "down",
+                width: 16,
+                height: 16,
+                pixels: composeFrame(
+                    leftSpriteTile: downTile + downShieldTileOffset,
+                    rightSpriteTile: downTile + 2,
+                    spriteCHR: spriteCHR
+                )
+            ),
+            SpriteSheet.SpriteFrame(
+                id: "up",
+                width: 16,
+                height: 16,
+                pixels: composeFrame(
+                    leftSpriteTile: upTile,
+                    rightSpriteTile: upTile + 2,
+                    spriteCHR: spriteCHR
+                )
+            ),
+            SpriteSheet.SpriteFrame(
+                id: "horizontal_attack_0",
+                width: 16,
+                height: 16,
+                pixels: composeFrame(
+                    leftSpriteTile: horizontalAttack0Tile,
+                    rightSpriteTile: horizontalAttack0Tile + 2,
+                    spriteCHR: spriteCHR
+                )
+            ),
+            SpriteSheet.SpriteFrame(
+                id: "horizontal_attack_1",
+                width: 16,
+                height: 16,
+                pixels: composeFrame(
+                    leftSpriteTile: horizontalAttack1Tile,
+                    rightSpriteTile: horizontalAttack1Tile + 2,
+                    spriteCHR: spriteCHR
+                )
+            ),
+            SpriteSheet.SpriteFrame(
+                id: "down_attack",
+                width: 16,
+                height: 16,
+                pixels: composeFrame(
+                    leftSpriteTile: downAttackTile,
+                    rightSpriteTile: downAttackTile + 2,
+                    spriteCHR: spriteCHR
+                )
+            ),
+            SpriteSheet.SpriteFrame(
+                id: "up_attack",
+                width: 16,
+                height: 16,
+                pixels: composeFrame(
+                    leftSpriteTile: upAttackTile,
+                    rightSpriteTile: upAttackTile + 2,
+                    spriteCHR: spriteCHR
+                )
+            )
+        ]
+
+        return frames
+    }
+
+    private func composeFrame(
+        leftSpriteTile: Int,
+        rightSpriteTile: Int,
+        spriteCHR: [UInt8],
+        leftMirrored: Bool = false,
+        rightMirrored: Bool = false
+    ) -> [UInt8] {
+        let decodedLeft = decode8x16Sprite(tileIndex: leftSpriteTile, spriteCHR: spriteCHR)
+        let decodedRight = decode8x16Sprite(tileIndex: rightSpriteTile, spriteCHR: spriteCHR)
+        let leftPixels = leftMirrored ? mirror8x16(decodedLeft) : decodedLeft
+        let rightPixels = rightMirrored ? mirror8x16(decodedRight) : decodedRight
+
+        var frame = Array(repeating: UInt8(0), count: 16 * 16)
+        for row in 0..<16 {
+            let leftRowStart = row * 8
+            let frameRowStart = row * 16
+            frame.replaceSubrange(frameRowStart..<(frameRowStart + 8), with: leftPixels[leftRowStart..<(leftRowStart + 8)])
+            frame.replaceSubrange((frameRowStart + 8)..<(frameRowStart + 16), with: rightPixels[leftRowStart..<(leftRowStart + 8)])
+        }
+        return frame
     }
 
     private func extractedCaveFrames(from blocks: [ASMByteBlock]) -> [SpriteSheet.SpriteFrame]? {
@@ -102,6 +214,7 @@ struct SpriteParser {
         ) else {
             return nil
         }
+        let itemSpriteCHR = structuredSpriteCHR(from: blocks, extraPatternLabel: "PatternBlockOWSP") ?? spriteCHR
 
         var frames: [SpriteSheet.SpriteFrame] = []
         for objectType in cavePersonObjectTypes {
@@ -144,7 +257,51 @@ struct SpriteParser {
             )
         }
 
+        frames.append(
+            contentsOf: extractedCaveItemFrames(
+                from: blocks,
+                spriteCHR: itemSpriteCHR
+            )
+        )
+
         return frames.isEmpty ? nil : frames
+    }
+
+    private func extractedCaveItemFrames(
+        from blocks: [ASMByteBlock],
+        spriteCHR: [UInt8]
+    ) -> [SpriteSheet.SpriteFrame] {
+        guard
+            let itemIdToSlot = bytes(for: "ItemIdToSlot", in: blocks),
+            let itemFrameOffsets = bytes(for: "Anim_ItemFrameOffsets", in: blocks),
+            let itemFrameTiles = bytes(for: "Anim_ItemFrameTiles", in: blocks)
+        else {
+            return []
+        }
+
+        return caveItemIDs.compactMap { itemID in
+            guard
+                itemIdToSlot.indices.contains(itemID),
+                itemFrameOffsets.indices.contains(Int(itemIdToSlot[itemID]))
+            else {
+                return nil
+            }
+
+            let slot = Int(itemIdToSlot[itemID])
+            let frameOffset = Int(itemFrameOffsets[slot])
+            guard itemFrameTiles.indices.contains(frameOffset) else {
+                return nil
+            }
+
+            let firstTile = Int(itemFrameTiles[frameOffset])
+            let pixels = composeItemFrame(firstTile: firstTile, spriteCHR: spriteCHR)
+            return SpriteSheet.SpriteFrame(
+                id: "item_\(hexIdentifier(itemID))",
+                width: 16,
+                height: 16,
+                pixels: pixels
+            )
+        }
     }
 
     private func selectedCaveSpriteCHR(
@@ -175,7 +332,14 @@ struct SpriteParser {
                 objAnimFrameHeap: objAnimFrameHeap,
                 spriteCHR: chr
             ) ?? []
-            let score = nonTransparentPixelCount(personPixels) + nonTransparentPixelCount(firePixels)
+            let itemPixels = extractedCaveItemFrames(from: blocks, spriteCHR: chr)
+                .first(where: { $0.id == "item_01" })?
+                .pixels ?? []
+
+            let score =
+                nonTransparentPixelCount(personPixels) +
+                nonTransparentPixelCount(firePixels) +
+                itemVisualScore(itemPixels)
 
             if let current = bestCandidate {
                 if score > current.1 {
@@ -187,6 +351,28 @@ struct SpriteParser {
         }
 
         return bestCandidate?.0
+    }
+
+    private func itemVisualScore(_ pixels: [UInt8]) -> Int {
+        guard pixels.count == 16 * 16 else {
+            return 0
+        }
+
+        let rowCounts = (0..<16).map { row in
+            (0..<16).reduce(into: 0) { count, column in
+                if pixels[(row * 16) + column] != 0 {
+                    count += 1
+                }
+            }
+        }
+
+        let maxWidth = rowCounts.max() ?? 0
+        let distinctWidths = Set(rowCounts.filter { $0 > 0 }).count
+        let nonTransparent = nonTransparentPixelCount(pixels)
+
+        // Prefer candidates where the item has visible shape variation
+        // (e.g., guard/hilt), not just a thin uniform strip.
+        return nonTransparent + (maxWidth * 8) + (distinctWidths * 12)
     }
 
     private func structuredSpriteCHR(from blocks: [ASMByteBlock], extraPatternLabel: String) -> [UInt8]? {
@@ -209,23 +395,73 @@ struct SpriteParser {
     }
 
     private func composeFrame(leftSpriteTile: Int, spriteCHR: [UInt8], mirrored: Bool) -> [UInt8] {
-        let leftPixels = decode8x16Sprite(tileIndex: leftSpriteTile, spriteCHR: spriteCHR)
-        let rightPixels: [UInt8]
+        // Cave person types with mirrored=true reuse one 8x16 tile and mirror
+        // it for the right half; they do not decode a separate right tile.
         if mirrored {
-            rightPixels = mirror8x16(leftPixels)
-        } else {
-            rightPixels = decode8x16Sprite(tileIndex: leftSpriteTile + 2, spriteCHR: spriteCHR)
+            return composeFrame(
+                leftSpriteTile: leftSpriteTile,
+                rightSpriteTile: leftSpriteTile,
+                spriteCHR: spriteCHR,
+                rightMirrored: true
+            )
         }
+
+        return composeFrame(
+            leftSpriteTile: leftSpriteTile,
+            rightSpriteTile: leftSpriteTile + 2,
+            spriteCHR: spriteCHR
+        )
+    }
+
+    private func composeItemFrame(firstTile: Int, spriteCHR: [UInt8]) -> [UInt8] {
+        let leftPixels = decode8x16Sprite(tileIndex: firstTile, spriteCHR: spriteCHR)
         var frame = Array(repeating: UInt8(0), count: 16 * 16)
 
-        for row in 0..<16 {
-            let leftRowStart = row * 8
-            let frameRowStart = row * 16
-            frame.replaceSubrange(frameRowStart..<(frameRowStart + 8), with: leftPixels[leftRowStart..<(leftRowStart + 8)])
-            frame.replaceSubrange((frameRowStart + 8)..<(frameRowStart + 16), with: rightPixels[leftRowStart..<(leftRowStart + 8)])
+        if isNarrowItemTile(firstTile) {
+            blit8x16(leftPixels, into: &frame, atX: 4)
+            return frame
         }
 
+        let rightPixels: [UInt8]
+        let separation: Int
+        switch firstTile {
+        case ..<0x6C:
+            rightPixels = mirror8x16(leftPixels)
+            separation = 7
+        case ..<0x7C:
+            rightPixels = mirror8x16(leftPixels)
+            separation = 8
+        default:
+            rightPixels = decode8x16Sprite(tileIndex: firstTile + 2, spriteCHR: spriteCHR)
+            separation = 8
+        }
+
+        blit8x16(leftPixels, into: &frame, atX: 0)
+        blit8x16(rightPixels, into: &frame, atX: separation)
         return frame
+    }
+
+    private func blit8x16(_ sprite: [UInt8], into frame: inout [UInt8], atX originX: Int) {
+        guard sprite.count == 8 * 16 else {
+            return
+        }
+
+        for row in 0..<16 {
+            for column in 0..<8 {
+                let destinationX = originX + column
+                guard (0..<16).contains(destinationX) else {
+                    continue
+                }
+
+                let source = (row * 8) + column
+                let destination = (row * 16) + destinationX
+                frame[destination] = sprite[source]
+            }
+        }
+    }
+
+    private func isNarrowItemTile(_ tile: Int) -> Bool {
+        tile == 0xF3 || (tile >= 0x20 && tile < 0x62)
     }
 
     private func mirror8x16(_ pixels: [UInt8]) -> [UInt8] {
@@ -321,6 +557,8 @@ struct SpriteParser {
         0x6A, 0x6B, 0x6C, 0x6D, 0x6E, 0x6F, 0x70, 0x71, 0x72, 0x73, 0x74,
         0x75, 0x76, 0x77, 0x78, 0x79, 0x7A, 0x7B, 0x7C
     ]
+
+    private let caveItemIDs = [0x01, 0x02, 0x03]
 
     private let cavePatternCandidates: [String] = [
         "PatternBlockUWSP",

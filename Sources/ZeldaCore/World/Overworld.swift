@@ -46,23 +46,30 @@ public struct Overworld: Codable, Equatable, Sendable {
     public var caveEntrances: [ScreenCoordinate: [CaveEntrance]]
     public var roomFlags: [ScreenCoordinate: Int]
     public var cavePickups: [ScreenCoordinate: [CavePickup]]
+    public var roomConnections: [ScreenCoordinate: Set<Direction>]
 
     public init(
         rooms: [ScreenCoordinate: Room],
         enemySpawns: [ScreenCoordinate: [Enemy]],
         caveEntrances: [ScreenCoordinate: [CaveEntrance]] = [:],
         roomFlags: [ScreenCoordinate: Int] = [:],
-        cavePickups: [ScreenCoordinate: [CavePickup]] = [:]
+        cavePickups: [ScreenCoordinate: [CavePickup]] = [:],
+        roomConnections: [ScreenCoordinate: Set<Direction>] = [:]
     ) {
         self.rooms = rooms
         self.enemySpawns = enemySpawns
         self.caveEntrances = caveEntrances
         self.roomFlags = roomFlags
         self.cavePickups = cavePickups
+        self.roomConnections = roomConnections
     }
 
     public func room(at coordinate: ScreenCoordinate) -> Room? {
         rooms[coordinate]
+    }
+
+    public func hasRoom(at coordinate: ScreenCoordinate) -> Bool {
+        room(at: coordinate) != nil
     }
 
     public func defaultEnemies(at coordinate: ScreenCoordinate) -> [Enemy] {
@@ -79,6 +86,44 @@ public struct Overworld: Codable, Equatable, Sendable {
 
     public func cavePickup(at coordinate: ScreenCoordinate, pixelPosition: Position) -> CavePickup? {
         cavePickups[coordinate]?.first(where: { $0.contains(pixelPosition: pixelPosition) })
+    }
+
+    public func linkedDestination(
+        from coordinate: ScreenCoordinate,
+        direction: Direction
+    ) -> ScreenCoordinate? {
+        guard hasRoom(at: coordinate) else {
+            return nil
+        }
+
+        let destination = coordinate.moved(direction: direction)
+        guard hasRoom(at: destination) else {
+            return nil
+        }
+
+        if !roomConnections.isEmpty {
+            guard roomConnections[coordinate]?.contains(direction) == true,
+                  roomConnections[destination]?.contains(direction.opposite) == true
+            else {
+                return nil
+            }
+        }
+
+        return destination
+    }
+
+    public func linkedDestinations(from coordinate: ScreenCoordinate) -> [Direction: ScreenCoordinate] {
+        guard hasRoom(at: coordinate) else {
+            return [:]
+        }
+
+        return Dictionary(uniqueKeysWithValues: Direction.allCases.compactMap { direction in
+            guard let destination = linkedDestination(from: coordinate, direction: direction) else {
+                return nil
+            }
+
+            return (direction, destination)
+        })
     }
 
     public static func starterOverworld() -> Overworld {
@@ -99,6 +144,47 @@ public struct Overworld: Codable, Equatable, Sendable {
             }
         }
 
-        return Overworld(rooms: rooms, enemySpawns: spawns, caveEntrances: [:], roomFlags: [:], cavePickups: [:])
+        return Overworld(
+            rooms: rooms,
+            enemySpawns: spawns,
+            caveEntrances: [:],
+            roomFlags: [:],
+            cavePickups: [:],
+            roomConnections: adjacentConnections(for: rooms)
+        )
+    }
+}
+
+private extension Overworld {
+    static func adjacentConnections(for rooms: [ScreenCoordinate: Room]) -> [ScreenCoordinate: Set<Direction>] {
+        var connections: [ScreenCoordinate: Set<Direction>] = [:]
+
+        for coordinate in rooms.keys {
+            for direction in Direction.allCases {
+                let destination = coordinate.moved(direction: direction)
+                guard rooms[destination] != nil else {
+                    continue
+                }
+
+                connections[coordinate, default: []].insert(direction)
+            }
+        }
+
+        return connections
+    }
+}
+
+public extension Direction {
+    var opposite: Direction {
+        switch self {
+        case .up:
+            return .down
+        case .down:
+            return .up
+        case .left:
+            return .right
+        case .right:
+            return .left
+        }
     }
 }

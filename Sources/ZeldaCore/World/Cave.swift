@@ -57,7 +57,7 @@ public struct CavePickup: Codable, Equatable, Sendable {
     public var position: Position {
         let wareXs = [0x58, 0x78, 0x98]
         let x = wareXs[min(max(0, slot), wareXs.count - 1)]
-        let relativeY = max(0, 0x98 - 0x40)
+        let relativeY = max(0, 0x9C - 0x40)
         return Position(x: x, y: Room.pixelHeight - relativeY)
     }
 

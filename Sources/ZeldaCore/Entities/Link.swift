@@ -22,7 +22,11 @@ public struct Link: Codable, Equatable, Sendable {
     }
 
     public var swordHitbox: Hitbox {
-        switch facing {
+        swordHitbox(facing: facing)
+    }
+
+    public func swordHitbox(facing direction: Direction) -> Hitbox {
+        switch direction {
         case .up:
             return Hitbox(x: position.x - 4, y: position.y - 22, width: 8, height: 16)
         case .down:

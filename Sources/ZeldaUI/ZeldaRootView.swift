@@ -29,7 +29,11 @@ public struct ZeldaRootView: View {
         case .game:
             ZStack {
                 VStack(spacing: 0) {
-                    HUDView(state: session.state)
+                    HUDView(
+                        state: session.state,
+                        paletteBundle: session.hudPaletteBundle,
+                        caveSpriteSheet: session.hudCaveSpriteSheet
+                    )
 
                     ZStack(alignment: .top) {
                         GameSpriteContainer(
@@ -69,12 +73,12 @@ private struct CaveDialogueBanner: View {
     let text: String
 
     var body: some View {
-        let lines = Self.wrap(text.uppercased(), maxColumns: 20)
+        let lines = Self.wrap(text.uppercased(), maxColumns: 21)
 
-        NESPixelText(lines: lines, pixelSize: 5, color: Color(red: 0.95, green: 0.95, blue: 0.95))
+        NESPixelText(lines: lines, pixelSize: 4, color: Color(red: 0.95, green: 0.95, blue: 0.95))
             .padding(.horizontal, 6)
             .padding(.vertical, 0)
-            .frame(width: 520, alignment: .center)
+            .frame(width: 500, alignment: .center)
     }
 
     private static func wrap(_ text: String, maxColumns: Int) -> [String] {
@@ -229,8 +233,12 @@ private struct GameKeyboardShortcuts: View {
                 .keyboardShortcut(.space, modifiers: [])
             Button("") { onInput(InputState(buttonA: true)) }
                 .keyboardShortcut("z", modifiers: [])
+            Button("") { onInput(InputState(buttonA: true)) }
+                .keyboardShortcut("a", modifiers: [])
             Button("") { onInput(InputState(buttonB: true)) }
                 .keyboardShortcut("x", modifiers: [])
+            Button("") { onInput(InputState(buttonB: true)) }
+                .keyboardShortcut("s", modifiers: [])
         }
         .frame(width: 0, height: 0)
         .opacity(0.001)
@@ -360,10 +368,10 @@ private final class InputHostingSKView: SKView {
         case 36, 49, 53:
             onInput?(InputState(start: true))
             return true
-        case 6:
+        case 0, 6:
             onInput?(InputState(buttonA: true))
             return true
-        case 7:
+        case 1, 7:
             onInput?(InputState(buttonB: true))
             return true
         default:
