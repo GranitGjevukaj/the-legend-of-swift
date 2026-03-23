@@ -2,6 +2,8 @@
 
 Native Swift reinterpretation of NES Zelda with a deterministic extraction pipeline and a headless, testable core.
 
+<img width="1201" height="913" alt="Screenshot 2026-03-23 at 09 54 56" src="https://github.com/user-attachments/assets/bccf3c9a-1853-4e78-8c09-919d5471a0f0" />
+
 ## Current Status
 
 Implemented foundation milestone:
