@@ -31,6 +31,7 @@ public struct ZeldaExtractor {
         let enemies = EnemyDataParser().parse(from: config.sourceURL)
         let items = ItemTableParser().parse(from: config.sourceURL)
         let sprites = SpriteParser().parse(from: config.sourceURL)
+        let titleScreen = TitleScreenParser().parse(from: config.sourceURL)
         let text = TextParser().parseText(from: config.sourceURL)
         let audio = TextParser().parseAudio(from: config.sourceURL)
         let damageTable = DamageTableParser().parse(from: config.sourceURL)
@@ -44,6 +45,7 @@ public struct ZeldaExtractor {
         written.append(try jsonWriter.write(damageTable, to: config.outputURL.appendingPathComponent("damage_table.json")))
         written.append(try jsonWriter.write(text, to: config.outputURL.appendingPathComponent("text.json")))
         written.append(try jsonWriter.write(audio, to: config.outputURL.appendingPathComponent("audio.json")))
+        written.append(try jsonWriter.write(titleScreen, to: config.outputURL.appendingPathComponent("title_screen.json")))
 
         for dungeon in dungeons {
             let url = config.outputURL

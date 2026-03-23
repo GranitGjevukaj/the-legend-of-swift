@@ -17,6 +17,7 @@ required=(
   damage_table.json
   text.json
   audio.json
+  title_screen.json
   dungeons/dungeon_1.json
   dungeons/dungeon_9.json
   tilesets/overworld.bin

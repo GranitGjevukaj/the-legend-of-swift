@@ -4,6 +4,7 @@ public struct LoadedContent: Sendable {
     public var overworld: OverworldData
     public var dungeons: [DungeonData]
     public var palettes: PaletteBundle
+    public var titleScreen: TitleScreenData?
     public var linkSpriteSheet: SpriteSheet?
     public var caveSpriteSheet: SpriteSheet?
     public var enemies: [EnemyDefinition]
@@ -16,6 +17,7 @@ public struct LoadedContent: Sendable {
         overworld: OverworldData,
         dungeons: [DungeonData],
         palettes: PaletteBundle,
+        titleScreen: TitleScreenData? = nil,
         linkSpriteSheet: SpriteSheet? = nil,
         caveSpriteSheet: SpriteSheet? = nil,
         enemies: [EnemyDefinition],
@@ -27,6 +29,7 @@ public struct LoadedContent: Sendable {
         self.overworld = overworld
         self.dungeons = dungeons
         self.palettes = palettes
+        self.titleScreen = titleScreen
         self.linkSpriteSheet = linkSpriteSheet
         self.caveSpriteSheet = caveSpriteSheet
         self.enemies = enemies
@@ -86,6 +89,7 @@ public struct ContentLoader: Sendable {
     public func loadAll() throws -> LoadedContent {
         let overworld: OverworldData = try decode("overworld.json")
         let palettes: PaletteBundle = try decode("palettes.json")
+        let titleScreen: TitleScreenData? = try? decode("title_screen.json")
         let linkSpriteSheet = try loadSpriteSheet(prefix: "link")
         let caveSpriteSheet = try loadSpriteSheet(prefix: "cave")
         let enemies: [EnemyDefinition] = try decode("enemies.json")
@@ -106,6 +110,7 @@ public struct ContentLoader: Sendable {
             overworld: overworld,
             dungeons: dungeons,
             palettes: palettes,
+            titleScreen: titleScreen,
             linkSpriteSheet: linkSpriteSheet,
             caveSpriteSheet: caveSpriteSheet,
             enemies: enemies,

@@ -11,6 +11,7 @@ public final class GameSession: ObservableObject {
     public let scene: GameScene
     public let hudPaletteBundle: PaletteBundle?
     public let hudCaveSpriteSheet: SpriteSheet?
+    public let titleScreenData: TitleScreenData?
     private let defaultStartScreen: ScreenCoordinate
     private let defaultStartLink: ZeldaCore.Link
     private let runtimeOverworld: Overworld
@@ -21,6 +22,7 @@ public final class GameSession: ObservableObject {
         let loader = ContentLoader.repositoryDefault()
         let loadedContent = try? loader.loadAll()
         loadedOverworld = loadedContent?.overworld
+        titleScreenData = loadedContent?.titleScreen
         textEntries = loadedContent?.text ?? [:]
         defaultStartScreen = Self.screenCoordinate(from: loadedContent?.overworld.startRoomId) ?? ScreenCoordinate(column: 7, row: 3)
         defaultStartLink = Self.linkSpawn(from: loadedContent?.overworld) ?? .spawnPoint

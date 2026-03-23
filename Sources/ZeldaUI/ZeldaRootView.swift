@@ -18,7 +18,10 @@ public struct ZeldaRootView: View {
     public var body: some View {
         switch stage {
         case .title:
-            TitleScreen {
+            TitleScreen(
+                titleScreen: session.titleScreenData,
+                palettes: session.hudPaletteBundle
+            ) {
                 stage = .fileSelect
             }
         case .fileSelect:

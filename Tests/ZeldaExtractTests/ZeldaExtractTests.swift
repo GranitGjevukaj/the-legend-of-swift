@@ -148,6 +148,15 @@ final class ZeldaExtractTests: XCTestCase {
         XCTAssertEqual(tileSet.tiles.count, 256)
         XCTAssertEqual(tileSet.tiles.first?.pixels.count, 64)
         XCTAssertTrue(tileSet.tiles.first?.pixels.allSatisfy { (0...3).contains(Int($0)) } ?? false)
+
+        let titleData = try Data(contentsOf: outputDir.appendingPathComponent("title_screen.json"))
+        let titleScreen = try decoder.decode(TitleScreenData.self, from: titleData)
+        XCTAssertEqual(titleScreen.tileColumns, 32)
+        XCTAssertEqual(titleScreen.tileRows, 30)
+        XCTAssertEqual(titleScreen.nametable.count, 32 * 30)
+        XCTAssertEqual(titleScreen.attributeTable.count, 64)
+        XCTAssertEqual(titleScreen.paletteRam.count, 32)
+        XCTAssertEqual(titleScreen.backgroundPatternTable.count, 0x1000)
     }
 
     func testExactLabelPriorityBeatsGenericKeywordMatches() throws {
@@ -266,7 +275,7 @@ final class ZeldaExtractTests: XCTestCase {
         defer { try? fileManager.removeItem(at: base) }
 
         let artifacts = try ZeldaExtractor(config: ExtractionConfig(sourceURL: sourceDir, outputURL: outputDir)).run()
-        XCTAssertEqual(artifacts.count, 21)
+        XCTAssertEqual(artifacts.count, 22)
 
         let decoder = JSONDecoder()
 
@@ -359,6 +368,18 @@ final class ZeldaExtractTests: XCTestCase {
         XCTAssertTrue(caveSheet.frames.contains(where: { $0.id == "person_6a" && $0.pixels?.count == 256 }))
         XCTAssertTrue(caveSheet.frames.contains(where: { $0.id == "standing_fire" && $0.pixels?.count == 256 }))
         XCTAssertTrue(caveSheet.frames.contains(where: { $0.id == "item_01" && $0.pixels?.count == 256 }))
+
+        let titleData = try Data(contentsOf: outputDir.appendingPathComponent("title_screen.json"))
+        let titleScreen = try decoder.decode(TitleScreenData.self, from: titleData)
+        XCTAssertEqual(titleScreen.tileColumns, 32)
+        XCTAssertEqual(titleScreen.tileRows, 30)
+        XCTAssertEqual(titleScreen.nametable.count, 32 * 30)
+        XCTAssertEqual(titleScreen.attributeTable.count, 64)
+        XCTAssertEqual(Array(titleScreen.paletteRam.prefix(4)), [0x36, 0x0F, 0x00, 0x10])
+        XCTAssertEqual(Array(titleScreen.nametable.prefix(8)), [0x24, 0x24, 0x24, 0x24, 0x24, 0x24, 0x24, 0x24])
+        XCTAssertTrue(titleScreen.nametable.contains(0xD6))
+        XCTAssertTrue(titleScreen.nametable.contains(0xEE))
+        XCTAssertEqual(titleScreen.backgroundPatternTable[0x700], 0x00)
     }
 
     func testIncbinResolvesFromSiblingBinDirectory() throws {

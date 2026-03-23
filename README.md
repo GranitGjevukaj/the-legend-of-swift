@@ -16,6 +16,7 @@ Implemented foundation milestone:
 : Link walking sprites now extract real ROM-backed frame pixels for the runtime renderer instead of placeholder-only manifests
 : Link projectile/item-slot frames (sword beam, magic beam, arrow, boomerang) now extract ROM-backed pixels for runtime projectile animation
 : Cave dweller and standing-fire sprites now extract real ROM-backed frame pixels for first-cave rendering
+: Title screen extraction now emits ROM-backed nametable, attribute, palette RAM, and demo CHR data for NES-accurate title rendering
 : Extraction now routes through a centralized Zelda disassembly symbol catalog with exact-label + bank/file-hint priority before generic keyword fallback
 - SwiftUI + SpriteKit macOS shell (`zelda-mac`) with title, file select, and playable room
 - Test suite for core/content/extraction determinism
