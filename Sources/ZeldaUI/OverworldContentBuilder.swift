@@ -61,26 +61,6 @@ enum OverworldContentBuilder {
             overworld.caveEntrances[coordinate] = caveEntrances
             overworld.roomFlags[coordinate] = roomFlags
 
-            for exit in screen.exits {
-                guard let direction = parseDirection(from: exit) else {
-                    continue
-                }
-
-                guard let destination = linkedCoordinate(
-                    from: coordinate,
-                    direction: direction,
-                    width: data.width,
-                    height: data.height
-                ),
-                    availableCoordinates.contains(destination)
-                else {
-                    continue
-                }
-
-                roomConnections[coordinate, default: []].insert(direction)
-                roomConnections[destination, default: []].insert(direction.opposite)
-            }
-
             if let caveIndex = screen.caveIndex,
                let definition = data.caveDefinitions?.first(where: { $0.index == caveIndex })
             {
@@ -93,6 +73,19 @@ enum OverworldContentBuilder {
                     }
                     return CavePickup(slot: item.slot, kind: kind)
                 }
+            }
+        }
+
+        // Use geometric adjacency for screen transitions. Exit byte decoding from
+        // disassembly is still evolving; adjacency + collision boundaries gives
+        // the correct north/east/south/west destination screens at runtime.
+        for coordinate in availableCoordinates {
+            for direction in Direction.allCases {
+                let destination = adjacentCoordinate(from: coordinate, direction: direction)
+                guard availableCoordinates.contains(destination) else {
+                    continue
+                }
+                roomConnections[coordinate, default: []].insert(direction)
             }
         }
 
@@ -114,44 +107,17 @@ enum OverworldContentBuilder {
         }
     }
 
-    private static func linkedCoordinate(
-        from coordinate: ScreenCoordinate,
-        direction: Direction,
-        width: Int,
-        height: Int
-    ) -> ScreenCoordinate? {
+    private static func adjacentCoordinate(from coordinate: ScreenCoordinate, direction: Direction) -> ScreenCoordinate {
         switch direction {
         case .up:
-            let row = coordinate.row - 1
-            guard row >= 0 else { return nil }
-            return ScreenCoordinate(column: coordinate.column, row: row)
+            return ScreenCoordinate(column: coordinate.column, row: coordinate.row + 1)
         case .down:
-            let row = coordinate.row + 1
-            guard row < height else { return nil }
-            return ScreenCoordinate(column: coordinate.column, row: row)
+            return ScreenCoordinate(column: coordinate.column, row: coordinate.row - 1)
         case .left:
-            let column = coordinate.column - 1
-            guard column >= 0 else { return nil }
-            return ScreenCoordinate(column: column, row: coordinate.row)
+            return ScreenCoordinate(column: coordinate.column - 1, row: coordinate.row)
         case .right:
-            let column = coordinate.column + 1
-            guard column < width else { return nil }
-            return ScreenCoordinate(column: column, row: coordinate.row)
+            return ScreenCoordinate(column: coordinate.column + 1, row: coordinate.row)
         }
     }
 
-    private static func parseDirection(from exit: String) -> Direction? {
-        switch exit.lowercased() {
-        case "up", "north":
-            return .up
-        case "down", "south":
-            return .down
-        case "left", "west":
-            return .left
-        case "right", "east":
-            return .right
-        default:
-            return nil
-        }
-    }
 }

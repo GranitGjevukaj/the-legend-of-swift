@@ -170,6 +170,8 @@ public struct GameState: Sendable {
             transition.advanceFrame()
             if transition.isComplete {
                 currentScreen = transition.destination
+                link.position = wrappedLinkPosition(after: transition.direction, current: link.position)
+                link.facing = transition.direction
                 phase = .playing
                 loadEnemiesForCurrentScreen()
                 wasButtonAHeld = input.buttonA
@@ -258,7 +260,7 @@ public struct GameState: Sendable {
 
         wasButtonAHeld = input.buttonA
 
-        tickProjectiles()
+        tickProjectiles(events: &events)
         tickEnemies()
         evaluateCollisions(events: &events)
         return events
@@ -305,15 +307,36 @@ public struct GameState: Sendable {
         return nil
     }
 
-    private mutating func tickProjectiles() {
+    private mutating func tickProjectiles(events: inout [GameEvent]) {
         for (index, projectile) in projectiles.enumerated().reversed() {
             var mutableProjectile = projectile
             mutableProjectile.advance()
-            if currentRoom.isWalkable(pixelPosition: mutableProjectile.position) {
-                projectiles[index] = mutableProjectile
-            } else {
+            guard currentRoom.isWalkable(pixelPosition: mutableProjectile.position) else {
                 projectiles.remove(at: index)
+                continue
             }
+
+            if let enemyIndex = enemies.firstIndex(where: { enemy in
+                HitDetection.overlaps(a: mutableProjectile.hitbox, b: enemy.hitbox)
+            }) {
+                let enemyKind = enemies[enemyIndex].kind
+                let damage = DamageTable.default.damage(
+                    weapon: .sword(level: inventory.swordLevel),
+                    against: enemyKind
+                )
+                var mutableEnemy = enemies[enemyIndex]
+                mutableEnemy.hitPoints -= damage
+                if mutableEnemy.hitPoints <= 0 {
+                    enemies.remove(at: enemyIndex)
+                    events.append(.enemyDefeated(enemyKind))
+                } else {
+                    enemies[enemyIndex] = mutableEnemy
+                }
+                projectiles.remove(at: index)
+                continue
+            }
+
+            projectiles[index] = mutableProjectile
         }
     }
 
@@ -416,19 +439,59 @@ public struct GameState: Sendable {
         swordSwingTicksRemaining = Self.swordSwingDurationTicks
         swordSwingDirection = link.facing
         swordAttackCooldownTicks = Self.swordSwingCooldownTicks
+        if shouldFireSwordBeam() {
+            projectiles.append(
+                Projectile(
+                    kind: .swordBeam,
+                    position: link.position.moved(direction: link.facing, step: Self.swordBeamSpawnOffset),
+                    direction: link.facing,
+                    speed: Self.swordBeamSpeed
+                )
+            )
+        }
+    }
+
+    private func shouldFireSwordBeam() -> Bool {
+        guard link.hearts == link.maxHearts else {
+            return false
+        }
+
+        return !projectiles.contains(where: { $0.kind == .swordBeam })
     }
 
     private static let swordSwingDurationTicks = 8
     private static let swordSwingCooldownTicks = 10
+    private static let swordBeamSpawnOffset = 8
+    private static let swordBeamSpeed = 4
+
+    private func wrappedLinkPosition(after direction: Direction, current: Position) -> Position {
+        let minBoundary = Room.tileSize
+        let maxX = Room.pixelWidth - Room.tileSize - 1
+        let maxY = Room.pixelHeight - Room.tileSize - 1
+
+        let clampedX = min(max(current.x, minBoundary), maxX)
+        let clampedY = min(max(current.y, minBoundary), maxY)
+
+        switch direction {
+        case .left:
+            return Position(x: maxX, y: clampedY)
+        case .right:
+            return Position(x: minBoundary, y: clampedY)
+        case .up:
+            return Position(x: clampedX, y: maxY)
+        case .down:
+            return Position(x: clampedX, y: minBoundary)
+        }
+    }
 }
 
 extension ScreenCoordinate {
     func moved(direction: Direction) -> ScreenCoordinate {
         switch direction {
         case .up:
-            return ScreenCoordinate(column: column, row: row - 1)
-        case .down:
             return ScreenCoordinate(column: column, row: row + 1)
+        case .down:
+            return ScreenCoordinate(column: column, row: row - 1)
         case .left:
             return ScreenCoordinate(column: column - 1, row: row)
         case .right:

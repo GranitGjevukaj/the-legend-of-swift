@@ -174,7 +174,7 @@ struct SpriteParser {
             )
         ]
 
-        return frames
+        return frames + extractedProjectileFrames(from: blocks, spriteCHR: spriteCHR)
     }
 
     private func composeFrame(
@@ -197,6 +197,56 @@ struct SpriteParser {
             frame.replaceSubrange((frameRowStart + 8)..<(frameRowStart + 16), with: rightPixels[leftRowStart..<(leftRowStart + 8)])
         }
         return frame
+    }
+
+    private func extractedProjectileFrames(
+        from blocks: [ASMByteBlock],
+        spriteCHR: [UInt8]
+    ) -> [SpriteSheet.SpriteFrame] {
+        guard
+            let itemFrameOffsets = bytes(for: "Anim_ItemFrameOffsets", in: blocks),
+            let itemFrameTiles = bytes(for: "Anim_ItemFrameTiles", in: blocks)
+        else {
+            return []
+        }
+
+        func frame(slot: Int, frameIndex: Int, id: String) -> SpriteSheet.SpriteFrame? {
+            guard itemFrameOffsets.indices.contains(slot) else {
+                return nil
+            }
+
+            let tileIndex = Int(itemFrameOffsets[slot]) + frameIndex
+            guard itemFrameTiles.indices.contains(tileIndex) else {
+                return nil
+            }
+
+            let firstTile = Int(itemFrameTiles[tileIndex])
+            return SpriteSheet.SpriteFrame(
+                id: id,
+                width: 16,
+                height: 16,
+                pixels: composeItemFrame(firstTile: firstTile, spriteCHR: spriteCHR)
+            )
+        }
+
+        let definitions: [(slot: Int, frame: Int, id: String)] = [
+            (0x22, 0, "sword_beam_vertical"),
+            (0x22, 1, "sword_beam_horizontal"),
+            (0x22, 2, "sword_beam_spread"),
+            (0x23, 0, "magic_beam_vertical"),
+            (0x23, 1, "magic_beam_horizontal"),
+            (0x23, 2, "magic_beam_spread"),
+            (0x02, 0, "arrow_vertical"),
+            (0x02, 1, "arrow_horizontal"),
+            (0x1D, 0, "boomerang_0"),
+            (0x1D, 1, "boomerang_1"),
+            (0x1D, 2, "boomerang_2"),
+            (0x1D, 3, "boomerang_3")
+        ]
+
+        return definitions.compactMap { definition in
+            frame(slot: definition.slot, frameIndex: definition.frame, id: definition.id)
+        }
     }
 
     private func extractedCaveFrames(from blocks: [ASMByteBlock]) -> [SpriteSheet.SpriteFrame]? {
@@ -380,8 +430,16 @@ struct SpriteParser {
             return nil
         }
 
+        let demoSpritePatterns = bytes(for: "DemoSpritePatterns", in: blocks) ?? []
         let areaSpritePatterns = bytes(for: extraPatternLabel, in: blocks) ?? []
         var chr = Array(repeating: UInt8(0), count: 0x1000)
+
+        // The engine transfers CommonSpritePatterns at $0000 (0x700 bytes) and
+        // later overlays the level sprite block at $08E0 (0x720 bytes).
+        // The middle region ($0700..$08DF) is preserved from the earlier demo
+        // sprite transfer and contains projectile/item tiles such as horizontal
+        // sword beam/arrow frames.
+        copy(demoSpritePatterns, into: &chr, at: 0x0000)
         copy(commonSpritePatterns, into: &chr, at: 0x0000)
         copy(areaSpritePatterns, into: &chr, at: 0x08E0)
         return chr

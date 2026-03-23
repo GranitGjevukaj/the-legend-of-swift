@@ -102,6 +102,7 @@ public final class GameScene: SKScene {
     private let linkNode = SKSpriteNode()
     private let swordNode = SKSpriteNode()
     private let enemyLayer = SKNode()
+    private let projectileLayer = SKNode()
     private let caveContentLayer = SKNode()
     private let backgroundNode = SKSpriteNode()
     private let linkPaletteBundle: PaletteBundle?
@@ -113,11 +114,15 @@ public final class GameScene: SKScene {
     private var backgroundTextureCache: [ScreenCoordinate: SKTexture] = [:]
     private var caveTextureCache: [String: SKTexture] = [:]
     private var swordTextureCache: [Int: SKTexture] = [:]
+    private var projectileTextureCache: [String: SKTexture] = [:]
     private var lastLinkPosition: Position
     private var lastRenderedBackdrop: BackdropKey?
     private var lastRenderedRoomFlags: Int?
     private var linkWalkFrameIndex = 0
     private var hasExtractedAttackFrames = false
+    private var projectileAnimationCounter = 0
+    private static let boomerangFrameCycle = [0, 1, 2, 1, 0, 1, 2, 1]
+    private static let boomerangBaseSpriteAttrCycle = [0x00, 0x00, 0x00, 0x40, 0x40, 0xC0, 0x80, 0x80]
 
     public init(
         initialState: GameState,
@@ -170,6 +175,7 @@ public final class GameScene: SKScene {
         for _ in 0..<ticks {
             _ = gameState.tick(input: pendingInput)
             pendingInput = .idle
+            projectileAnimationCounter = (projectileAnimationCounter + 1) & 0xFF
         }
 
         syncNodes(with: gameState)
@@ -197,6 +203,8 @@ public final class GameScene: SKScene {
 
         caveContentLayer.zPosition = 4
         addChild(caveContentLayer)
+        projectileLayer.zPosition = 9
+        addChild(projectileLayer)
         addChild(enemyLayer)
     }
 
@@ -229,6 +237,7 @@ public final class GameScene: SKScene {
         linkNode.texture = currentLinkTexture(for: state)
         linkNode.position = scenePoint(for: state.link.position)
         renderOverlaySword(for: state)
+        renderProjectiles(for: state)
 
         enemyLayer.removeAllChildren()
         for enemy in state.enemies {
@@ -238,6 +247,249 @@ public final class GameScene: SKScene {
             enemyNode.position = scenePoint(for: enemy.position)
             enemyLayer.addChild(enemyNode)
         }
+    }
+
+    private func renderProjectiles(for state: GameState) {
+        projectileLayer.removeAllChildren()
+        for projectile in state.projectiles {
+            if let texture = projectileTexture(for: projectile) {
+                let node = SKSpriteNode(texture: texture)
+                node.size = CGSize(width: 16, height: 16)
+                let orientation = projectileOrientationScale(for: projectile)
+                node.xScale = orientation.x
+                node.yScale = orientation.y
+                node.zRotation = projectileRotation(for: projectile)
+                let offset = projectileSpriteOffset(for: projectile)
+                node.position = scenePoint(
+                    for: Position(
+                        x: projectile.position.x + offset.x,
+                        y: projectile.position.y + offset.y
+                    )
+                )
+                projectileLayer.addChild(node)
+                continue
+            }
+
+            let node = SKShapeNode(rectOf: CGSize(width: 8, height: 8), cornerRadius: 1)
+            node.fillColor = SKColor(red: 0.72, green: 0.96, blue: 1.0, alpha: 1.0)
+            node.strokeColor = SKColor(red: 0.12, green: 0.45, blue: 0.78, alpha: 1.0)
+            node.position = scenePoint(for: projectile.position)
+            projectileLayer.addChild(node)
+        }
+    }
+
+    private func projectileTexture(for projectile: Projectile) -> SKTexture? {
+        guard let frameID = projectileFrameID(for: projectile) else {
+            return nil
+        }
+
+        let phase = projectilePalettePhase(for: projectile)
+        let cacheKey = "\(frameID)-\(projectile.kind.rawValue)-\(phase)"
+        if let cached = projectileTextureCache[cacheKey] {
+            return cached
+        }
+
+        let pixels: [UInt8]?
+        if frameID == "standing_fire" {
+            pixels = framePixels(id: frameID, in: caveSpriteSheet)
+        } else {
+            pixels = framePixels(id: frameID, in: linkSpriteSheet)
+        }
+
+        guard let pixels else {
+            return nil
+        }
+
+        let palette = projectilePalette(for: projectile.kind, flashPhase: phase)
+        let texture = texture(from: pixels, width: 16, height: 16, palette: palette)
+        projectileTextureCache[cacheKey] = texture
+        return texture
+    }
+
+    private func projectileFrameID(for projectile: Projectile) -> String? {
+        switch projectile.kind {
+        case .swordBeam:
+            return "sword_beam_vertical"
+        case .arrow:
+            return "arrow_vertical"
+        case .boomerang:
+            let cycleIndex = boomerangCycleIndex()
+            let frame = Self.boomerangFrameCycle[cycleIndex]
+            return "boomerang_\(frame)"
+        case .fire:
+            return "standing_fire"
+        case .magic:
+            return "magic_beam_vertical"
+        }
+    }
+
+    private func projectileOrientationScale(for projectile: Projectile) -> (x: CGFloat, y: CGFloat) {
+        switch projectile.kind {
+        case .swordBeam, .arrow, .magic:
+            let yScale: CGFloat = projectile.direction == .down ? -1 : 1
+            return (1, yScale)
+        case .boomerang:
+            let attributes = Self.boomerangBaseSpriteAttrCycle[boomerangCycleIndex()]
+            let xScale: CGFloat = (attributes & 0x40) == 0 ? 1 : -1
+            let yScale: CGFloat = (attributes & 0x80) == 0 ? 1 : -1
+            return (xScale, yScale)
+        case .fire:
+            return (1, 1)
+        }
+    }
+
+    private func projectileRotation(for projectile: Projectile) -> CGFloat {
+        switch projectile.kind {
+        case .swordBeam, .arrow, .magic:
+            switch projectile.direction {
+            case .left:
+                return .pi / 2
+            case .right:
+                return -.pi / 2
+            case .up, .down:
+                return 0
+            }
+        case .boomerang, .fire:
+            return 0
+        }
+    }
+
+    private func boomerangCycleIndex() -> Int {
+        let ticksPerFrame = 2
+        return (projectileAnimationCounter / ticksPerFrame) % Self.boomerangFrameCycle.count
+    }
+
+    private func projectilePalettePhase(for projectile: Projectile) -> Int {
+        switch projectile.kind {
+        case .swordBeam, .magic:
+            return projectileAnimationCounter & 0x03
+        default:
+            return 0
+        }
+    }
+
+    private func projectileSpriteOffset(for projectile: Projectile) -> (x: Int, y: Int) {
+        switch projectile.kind {
+        case .swordBeam, .magic:
+            return (0, 0)
+        case .arrow:
+            return (-4, 0)
+        case .boomerang, .fire:
+            return (0, 0)
+        }
+    }
+
+    private func framePixels(id: String, in spriteSheet: SpriteSheet?) -> [UInt8]? {
+        guard
+            let spriteSheet,
+            let frame = spriteSheet.frames.first(where: { $0.id == id }),
+            frame.width == 16,
+            frame.height == 16,
+            let pixels = frame.pixels,
+            pixels.count == 16 * 16
+        else {
+            return nil
+        }
+        return pixels
+    }
+
+    private struct RGBA {
+        let r: UInt8
+        let g: UInt8
+        let b: UInt8
+        let a: UInt8
+    }
+
+    private func projectilePalette(for kind: Projectile.Kind, flashPhase: Int) -> [RGBA] {
+        switch kind {
+        case .fire:
+            return [
+                RGBA(r: 0, g: 0, b: 0, a: 0),
+                nesColor(index: 6, fallback: RGBA(r: 168, g: 16, b: 0, a: 255)),
+                nesColor(index: 38, fallback: RGBA(r: 248, g: 120, b: 88, a: 255)),
+                nesColor(index: 40, fallback: RGBA(r: 248, g: 184, b: 0, a: 255))
+            ]
+        default:
+            let fallbackRows = [
+                [15, 48, 0, 18],
+                [15, 22, 39, 54],
+                [15, 26, 55, 18],
+                [15, 23, 55, 18]
+            ]
+            let rows = linkPaletteBundle?.areaPaletteSets?["overworld"] ?? fallbackRows
+            let row = rows[min(max(0, flashPhase), rows.count - 1)]
+            let slot1 = row.indices.contains(1) ? row[1] : 48
+            let slot2 = row.indices.contains(2) ? row[2] : 39
+            let slot3 = row.indices.contains(3) ? row[3] : 18
+            return [
+                RGBA(r: 0, g: 0, b: 0, a: 0),
+                nesColor(index: slot1, fallback: RGBA(r: 252, g: 252, b: 252, a: 255)),
+                nesColor(index: slot2, fallback: RGBA(r: 104, g: 136, b: 252, a: 255)),
+                nesColor(index: slot3, fallback: RGBA(r: 228, g: 92, b: 16, a: 255))
+            ]
+        }
+    }
+
+    private func nesColor(index: Int, fallback: RGBA) -> RGBA {
+        guard
+            let bundle = linkPaletteBundle,
+            bundle.nesColors.indices.contains(index),
+            let parsed = parseHexColor(bundle.nesColors[index])
+        else {
+            return fallback
+        }
+        return parsed
+    }
+
+    private func parseHexColor(_ hex: String) -> RGBA? {
+        guard hex.count == 7, hex.hasPrefix("#"),
+              let value = Int(String(hex.dropFirst()), radix: 16)
+        else {
+            return nil
+        }
+
+        return RGBA(
+            r: UInt8((value >> 16) & 0xFF),
+            g: UInt8((value >> 8) & 0xFF),
+            b: UInt8(value & 0xFF),
+            a: 255
+        )
+    }
+
+    private func texture(from pixels: [UInt8], width: Int, height: Int, palette: [RGBA]) -> SKTexture {
+        var rgba = Array(repeating: UInt8(0), count: width * height * 4)
+        for (index, slot) in pixels.enumerated() {
+            let color = palette.indices.contains(Int(slot)) ? palette[Int(slot)] : palette[0]
+            let output = index * 4
+            rgba[output] = color.r
+            rgba[output + 1] = color.g
+            rgba[output + 2] = color.b
+            rgba[output + 3] = color.a
+        }
+
+        let data = Data(rgba) as CFData
+        guard
+            let provider = CGDataProvider(data: data),
+            let image = CGImage(
+                width: width,
+                height: height,
+                bitsPerComponent: 8,
+                bitsPerPixel: 32,
+                bytesPerRow: width * 4,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
+                provider: provider,
+                decode: nil,
+                shouldInterpolate: false,
+                intent: .defaultIntent
+            )
+        else {
+            return SKTexture()
+        }
+
+        let texture = SKTexture(cgImage: image)
+        texture.filteringMode = .nearest
+        return texture
     }
 
     private func renderBackground(for state: GameState) {

@@ -21,6 +21,10 @@ public struct Projectile: Codable, Equatable, Sendable {
         self.speed = speed
     }
 
+    public var hitbox: Hitbox {
+        Hitbox(x: position.x - 4, y: position.y - 4, width: 8, height: 8)
+    }
+
     public mutating func advance() {
         position = position.moved(direction: direction, step: speed)
     }

@@ -332,10 +332,27 @@ final class ZeldaExtractTests: XCTestCase {
                 "horizontal_attack_0",
                 "horizontal_attack_1",
                 "down_attack",
-                "up_attack"
+                "up_attack",
+                "sword_beam_vertical",
+                "sword_beam_horizontal",
+                "sword_beam_spread",
+                "magic_beam_vertical",
+                "magic_beam_horizontal",
+                "magic_beam_spread",
+                "arrow_vertical",
+                "arrow_horizontal",
+                "boomerang_0",
+                "boomerang_1",
+                "boomerang_2",
+                "boomerang_3"
             ]
         )
         XCTAssertTrue(linkSheet.frames.allSatisfy { $0.pixels?.count == 256 })
+        let linkFramesByID = Dictionary(uniqueKeysWithValues: linkSheet.frames.map { ($0.id, $0) })
+        for id in ["sword_beam_horizontal", "magic_beam_horizontal", "arrow_horizontal"] {
+            let nonTransparentPixels = linkFramesByID[id]?.pixels?.filter { $0 != 0 }.count ?? 0
+            XCTAssertGreaterThan(nonTransparentPixels, 0, "\(id) should decode visible pixels")
+        }
 
         let caveSpriteData = try Data(contentsOf: outputDir.appendingPathComponent("sprites/cave_src.json"))
         let caveSheet = try decoder.decode(SpriteSheet.self, from: caveSpriteData)
